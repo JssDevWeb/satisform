@@ -1,0 +1,798 @@
+/* ===== DISEÑO CORPORATIVO PARA REPORTES PDF - ACADEMIA ===== */
+/* Versión compatible con mPDF - Sin variables CSS, sin pseudo-selectores problemáticos */
+/* Autor: GitHub Copilot - 01 de julio de 2025 */
+/* Última limpieza: 02 de julio de 2025 - Eliminadas clases obsoletas (badges, chart-title, pie-chart-container, mpdf-legend-*) */
+
+/* ===== CONFIGURACIÓN BÁSICA ===== */
+body {
+    font-family: Arial, sans-serif;
+    font-size: 9pt;
+    color: #1e293b;
+    margin: 0;
+    padding: 0;
+    line-height: 1.6;
+    background: #ffffff;
+}
+
+/* ===== CABECERA PRINCIPAL ===== */
+.header, .header-principal {
+    text-align: center;
+    margin: 0 0 12px 0;      
+    padding: 8px 6px;      
+    background: linear-gradient(135deg, #1e40af 0%, #3b82f6 50%, #60a5fa 100%);
+    border: none;
+    border-bottom: 3px solid #1d4ed8;
+    color: #ffffff;
+    border-radius: 6px;
+}
+
+.header h1, .header-principal h1 {
+    font-size: 18pt;
+    font-weight: bold;
+    color: #ffffff;
+    margin: 0 0 8px 0;
+    letter-spacing: 0.5px;
+}
+
+.header .subtitle, .header-principal .subtitle {
+    font-size: 10pt;
+    color: #e0f2fe;
+    margin: 3px 0;
+    font-weight: 500;
+    opacity: 0.95;
+}
+
+/* ===== SECCIONES ===== */
+.section {
+    margin: 8px 0;
+    page-break-inside: auto;
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    overflow: hidden;
+    background: #ffffff;
+}
+
+.section-header {
+    background: linear-gradient(135deg, #1e40af 0%, #3b82f6 100%);
+    color: #ffffff;
+    padding: 8px 16px;
+    font-size: 12pt;
+    font-weight: 600;
+    margin: 0;
+    text-align: left;
+    border-bottom: 2px solid #1d4ed8;
+    border-radius: 8px 8px 0 0;
+}
+
+.section-body {
+    padding: 16px;
+    background-color: #ffffff;
+    border-top: 1px solid #f3f4f6;
+}
+
+.section-title {
+    font-size: 11pt;
+    font-weight: 600;
+    color: #1f2937;
+    margin: 18px 0 12px 0;
+    padding: 10px 14px;
+    border-left: 4px solid #3b82f6;
+    background: linear-gradient(90deg, #f8fafc 0%, #ffffff 100%);
+    border-radius: 0 4px 4px 0;
+}
+
+.section-title.critical {
+    color: #ffffff;
+    background: linear-gradient(135deg, #e67e22 0%, #f39c12 100%); /* Cambiado a naranja suave */
+    border-left: none;
+    border: 2px solid #d35400; /* Borde naranja oscuro en lugar de rojo */
+}
+
+.section-title.success {
+    color: #065f46;
+    border-left-color: #10b981;
+    background: linear-gradient(90deg, #ecfdf5 0%, #ffffff 100%);
+}
+
+.section-title.warning {
+    color: #ffffff;
+    background: linear-gradient(135deg, #3b82f6 0%, #60a5fa 100%); /* Cambiado a azul suave para comentarios */
+    border-left: none;
+    border-radius: 2px; /* Reducido de 8px a 2px para ser coherente con los comentarios */
+    border: 2px solid #2563eb; /* Borde azul más oscuro */
+}
+
+.section-title.info {
+    color: #1e40af;
+    border-left-color: #3b82f6;
+    background: linear-gradient(90deg, #eff6ff 0%, #ffffff 100%);
+}
+
+.section-title-gray {
+    color: #64748b;
+    border-left-color: #94a3b8;
+    background: linear-gradient(90deg, #f8fafc 0%, #ffffff 100%);
+    padding: 8px 12px;
+    margin: 18px 0 12px 0;
+    font-weight: 600;
+    border-radius: 0 4px 4px 0;
+}
+
+.section-description {
+    font-style: italic;
+    color: #6b7280;
+    font-size: 8.5pt;
+    margin: 8px 0 12px 0;
+    padding: 6px 12px;
+    background: #f9fafb;
+    border-radius: 2px; /* Reducido de 4px a 2px para ser coherente */
+    border-left: 2px solid #d1d5db;
+}
+
+/* ===== TABLAS DE INFORMACIÓN ===== */
+.info-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 12px 0;
+    font-size: 8.5pt;
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.info-table th {
+    background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%);
+    color: #1f2937;
+    padding: 10px 12px;
+    text-align: left;
+    font-weight: 600;
+    border: 1px solid #d1d5db;
+    font-size: 9pt;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+}
+
+.info-table td {
+    padding: 10px 12px;
+    border: 1px solid #e5e7eb;
+    vertical-align: top;
+    line-height: 1.5;
+}
+
+.info-table tr.even {
+    background-color: #f9fafb;
+}
+
+.info-table tr.odd {
+    background-color: #ffffff;
+}
+
+/* ===== TABLAS CRÍTICAS PROFESIONALES ===== */
+.critical-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 15px 0;
+    font-size: 8.5pt;
+    border: 1px solid #e67e22; /* Cambiado de rojo intenso a naranja suave */
+    border-radius: 8px;
+    overflow: hidden;
+    background-color: #ffffff;
+}
+
+.critical-table th {
+    background: linear-gradient(135deg, #e67e22 0%, #f39c12 100%); /* Gradiente naranja más suave */
+    color: #ffffff;
+    padding: 12px 10px;
+    text-align: center;
+    font-weight: 700;
+    border: 1px solid #d35400; /* Borde naranja más oscuro pero no agresivo */
+    font-size: 9pt;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.critical-table th .info-icon {
+    font-size: 7pt;
+    display: block;
+    margin-top: 3px;
+    opacity: 0.85;
+}
+
+.critical-table td {
+    padding: 10px 12px;
+    border: 1px solid #f3f4f6;
+    vertical-align: middle;
+    line-height: 1.4;
+}
+
+.critical-table tbody tr:nth-child(odd) {
+    background-color: #fef9f3; /* Fondo naranja muy suave en lugar de rojo */
+}
+
+.critical-table tbody tr:nth-child(even) {
+    background-color: #ffffff;
+}
+
+.critical-table .question-text {
+    font-weight: 500;
+    color: #374151;
+    text-align: left;
+    line-height: 1.5;
+}
+
+.critical-table .critical-cell {
+    background: linear-gradient(135deg, #e67e22 0%, #f39c12 100%); /* Celda crítica en naranja */
+    color: #ffffff;
+    font-weight: 700;
+    text-align: center;
+    border: 2px solid #d35400; /* Borde naranja oscuro */
+    border-radius: 4px;
+}
+
+.critical-table .numeric-cell {
+    text-align: center;
+    font-weight: 600;
+    color: #1f2937;
+}
+
+/* Columnas específicas para tabla crítica */
+.critical-col-pregunta { width: 50%; }
+.critical-col-total { width: 18%; }
+.critical-col-bajas { width: 18%; }
+.critical-col-porcentaje { width: 14%; }
+
+/* ===== COLUMNAS ===== */
+.col-60 { width: 60%; }
+.col-15 { width: 15%; }
+.col-10 { width: 10%; }
+
+.text-center { text-align: center; }
+
+.question-text {
+    font-weight: normal;
+    line-height: 1.4;
+}
+
+/* ===== KPI Y MÉTRICAS ===== */
+.kpi-grid {
+    margin: 10px 0;         /* Reducido de 15px a 10px */
+}
+
+.kpi-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.kpi-item {
+    text-align: center;
+    padding: 10px 8px;      /* Reducido de 15px 10px a 10px 8px */
+    background-color: #f0f9ff;
+    border: 1px solid #bfdbfe;
+    width: 33.33%;
+}
+
+.kpi-value {
+    font-size: 16pt;
+    font-weight: bold;
+    color: #1e40af;
+    margin: 0 0 5px 0;
+}
+
+.kpi-label {
+    font-size: 8pt;
+    color: #475569;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+/* ===== COMENTARIOS ===== */
+.comments-section {
+    margin: 15px 0;
+}
+
+.comment-group {
+    margin: 15px 0;
+    page-break-inside: avoid;
+}
+
+.comment-title {
+    font-size: 9pt;
+    font-weight: bold;
+    color: #1e293b;
+    margin: 0 0 8px 0;
+    padding: 8px 0;
+    border-bottom: 1px solid #e2e8f0;
+}
+
+.comment-item {
+    margin: 8px 0;
+}
+
+.comment-box {
+    background-color: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 2px; /* Reducido de 8px a 2px para bordes apenas redondeados */
+    padding: 14px;
+    font-size: 9pt;
+    line-height: 1.5;
+    position: relative;
+}
+
+.comment-date {
+    font-size: 7.5pt;
+    color: #64748b;
+    font-style: italic;
+    float: right;
+    margin-top: 6px;
+}
+
+/* ===== ESTADOS ESPECIALES ===== */
+.empty-state {
+    text-align: center;
+    color: #64748b;
+    font-style: italic;
+    padding: 20px;
+    background-color: #f8fafc;
+    border: 1px dashed #cbd5e1;
+    border-radius: 2px; /* Reducido de 8px a 2px para ser coherente */
+    margin: 10px 0;
+}
+
+.success-state {
+    text-align: center;
+    color: #065f46;
+    font-weight: bold;
+    padding: 15px;
+    background-color: #ecfdf5;
+    border: 1px solid #a7f3d0;
+    border-radius: 2px; /* Reducido de 8px a 2px para ser coherente */
+    margin: 10px 0;
+}
+
+/* ===== ESPECIALIDADES ===== */
+.specialty-text {
+    font-weight: normal;
+    font-style: italic;
+    color: #0ea5e9;
+}
+
+/* ===== PIE DE PÁGINA ===== */
+.footer {
+    text-align: center;
+    margin: 30px 0 0 0;
+    padding: 15px;
+    border-top: 2px solid #e2e8f0;
+    font-size: 7pt;
+    color: #64748b;
+    background-color: #f8fafc;
+}
+
+.footer p {
+    margin: 2px 0;
+}
+
+/* ===== AJUSTES PARA mPDF ===== */
+ @page { 
+    margin-top: 8mm;        
+    margin-bottom: 10mm;
+    margin-left: 8mm;
+    margin-right: 8mm;
+}
+
+/* Clase para forzar salto de página antes del elemento */
+.page-break-before {
+    page-break-before: always;
+}
+
+.comment-group, .kpi-grid {
+    page-break-inside: avoid;
+}
+
+
+.section {
+    page-break-inside: auto;
+}
+
+.section-title, .comment-title {
+    page-break-after: avoid;
+}
+
+.mpdf-horizontal-chart {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 15px 0;
+    background-color: #ffffff;
+}
+
+.mpdf-chart-legend-cell {
+    width: 55%; /* Aumentado de 50% a 55% para dar más espacio al gráfico */
+    text-align: center;
+    vertical-align: top;
+    padding: 8px 3px; /* Reducido padding para optimizar espacio */
+    border: none;
+}
+
+.mpdf-metrics-cell {
+    width: 45%; /* Reducido de 50% a 45% pero optimizado internamente */
+    vertical-align: top;
+    padding: 8px 3px; /* Reducido padding para optimizar espacio */
+    border: none;
+}
+
+/* ===== MÉTRICAS OPTIMIZADAS PARA mPDF ===== */
+.mpdf-metrics-table {
+    width: 100%;
+    border-collapse: collapse;
+    background-color: #f8fafc;
+    border: 1px solid #e2e8f0;
+    margin-bottom: 10px;
+}
+
+.mpdf-metric-header {
+    background: linear-gradient(135deg, #1e40af 0%, #3b82f6 100%);
+    color: #ffffff;
+    font-weight: bold;
+    font-size: 8pt;
+    padding: 6px;
+    text-align: center;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.mpdf-metric-label {
+    font-size: 7pt;
+    color: #64748b;
+    padding: 4px 6px;
+    text-align: left;
+    width: 60%;
+}
+
+.mpdf-metric-value {
+    font-size: 8pt;
+    font-weight: bold;
+    color: #1e40af;
+    padding: 4px 6px;
+    text-align: center;
+    background-color: #f0f9ff;
+    width: 40%;
+}
+
+/* ===== ESTILOS PARA TABLA DE MÉTRICAS ===== */
+.mpdf-table-subheader td {
+    background-color: #e8f4f8;
+    color: #1f2937;
+    font-size: 8pt;
+    font-weight: bold;
+    text-align: center;
+    padding: 6px 4px;
+    border: 1px solid #cbd5e1;
+}
+
+.mpdf-metric-label {
+    background-color: #f8fafc;
+    color: #374151;
+    font-weight: bold;
+    text-align: left;
+    padding: 5px 8px;
+    font-size: 8pt;
+    border: 1px solid #cbd5e1;
+    width: 45%;
+}
+
+.mpdf-metric-dash {
+    background-color: #f9fafb;
+    color: #9ca3af;
+    text-align: center;
+    padding: 5px 4px;
+    font-size: 8pt;
+    border: 1px solid #cbd5e1;
+    width: 15%;
+}
+
+.mpdf-metric-percentage {
+    background-color: #10b981;
+    color: white !important;
+    font-weight: bold;
+    text-align: center;
+    padding: 5px 4px;
+    font-size: 8pt;
+    border: 1px solid #cbd5e1;
+    width: 15%;
+}
+
+.mpdf-metrics-table tr:nth-child(odd) td:not(.mpdf-metric-header):not(.mpdf-table-subheader):not(.mpdf-metric-percentage) {
+    background-color: #f9fafb;
+}
+
+.mpdf-metrics-table tr:nth-child(even) td:not(.mpdf-metric-header):not(.mpdf-table-subheader):not(.mpdf-metric-percentage) {
+    background-color: #ffffff;
+}
+
+.mpdf-metrics-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 8pt;
+}
+
+.mpdf-metrics-table td {
+    vertical-align: middle;
+    border: 1px solid #cbd5e1;
+}
+
+.mpdf-metric-value {
+    text-align: center;
+    padding: 5px 4px;
+    font-size: 8pt;
+    width: 40%;
+}
+
+/* ===== TABLA DE MÉTRICAS PROFESIONA*/
+.mpdf-metrics-table-simple {
+    width: 100%;
+    border-collapse: collapse;
+    background-color: #f8fafc;
+    border: 1px solid #cbd5e1;
+    margin-bottom: 4px;
+    font-size: 9pt;
+}
+
+.mpdf-metrics-table-simple td,
+.mpdf-metrics-table-simple th {
+    vertical-align: middle;
+    border: 1px solid #e5e7eb;
+    padding: 8px 10px;
+}
+
+.mpdf-metrics-table-simple .mpdf-metric-header {
+    background: linear-gradient(135deg, #1e40af 0%, #3b82f6 100%);
+    color: #ffffff;
+    font-weight: bold;
+    font-size: 9pt; 
+    text-align: center;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    border: 1px solid #1d4ed8;
+    padding: 10px 8px; 
+}
+
+.mpdf-metrics-table-simple .mpdf-metric-label {
+    background-color: #f8fafc;
+    color: #1e293b;
+    font-weight: 600;
+    text-align: left;
+    font-size: 9pt;
+    width: 50%;
+}
+
+.mpdf-metrics-table-simple .mpdf-metric-value {
+    background-color: #ffffff;
+    color: #1e40af;
+    font-weight: bold;
+    text-align: center;
+    font-size: 9pt; 
+    width: 50%;
+}
+
+.mpdf-metrics-table-simple .mpdf-metric-value.mpdf-metric-percentage {
+    background-color: #10b981;
+    color: white !important;
+    font-weight: bold;
+    font-size: 10pt; 
+}
+
+.mpdf-metrics-table-simple tbody tr:nth-child(odd) td:not(.mpdf-metric-header) {
+    background-color: #f9fafb;
+}
+
+.mpdf-metrics-table-simple tbody tr:nth-child(even) td:not(.mpdf-metric-header) {
+    background-color: #ffffff;
+}
+
+/* Asegurar que el header mantenga su estilo */
+.mpdf-metrics-table-simple thead th,
+.mpdf-metrics-table-simple .mpdf-metric-header {
+    background: linear-gradient(135deg, #1e40af 0%, #3b82f6 100%) !important;
+    color: #ffffff !important;
+}
+
+/* ===== INTERPRETACIÓN DIRECTIVA MEJORADA ===== */
+.mpdf-interpretation {
+    background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+    border-left: 4px solid #3b82f6;
+    border-radius: 2px; /* Reducido de 4px a 2px para ser coherente */
+    padding: 8px; 
+    margin-top: 6px; 
+    font-size: 8pt;
+    line-height: 1.4;
+    color: #1e293b;
+    text-align: left;
+}
+
+/* Nueva clase específica para interpretación de preguntas críticas */
+.mpdf-critical-interpretation {
+    background: linear-gradient(135deg, #fff8f0 0%, #fef3e7 100%); /* Fondo naranja muy suave */
+    border-left: 4px solid #e67e22; /* Borde naranja */
+    border-radius: 2px; /* Reducido de 4px a 2px para ser coherente */
+    padding: 10px; 
+    margin: 10px 0 15px 0; 
+    font-size: 8pt;
+    line-height: 1.4;
+    color: #1e293b;
+    text-align: left;
+}
+
+.mpdf-interpretation strong, .mpdf-critical-interpretation strong {
+    font-weight: bold;
+    font-size: 8.5pt; 
+}
+
+.mpdf-interpretation em, .mpdf-critical-interpretation em {
+    font-style: italic;
+    color: #475569;
+    font-size: 7.5pt; 
+}
+
+.mpdf-interpretation ul, .mpdf-critical-interpretation ul {
+    margin: 4px 0 8px 5px;
+    padding-left: 15px;
+}
+
+.mpdf-interpretation li, .mpdf-critical-interpretation li {
+    margin: 2px 0;
+    font-size: 8pt;
+    color: #334155;
+}
+
+/* ===== AJUSTES ESPECÍFICOS PARA TAMAÑO DE GRÁFICO  ===== */
+.mpdf-chart-legend-cell svg {
+    max-width: 220px; 
+    max-height: 220px; 
+    margin: 0 auto;
+    display: block;
+}
+
+/* ===== NUEVO CONTENEDOR DE GRÁFICO CON DISTRIBUCIÓN VERTICAL ===== */
+.mpdf-chart-container {
+    margin: 0;
+    padding: 0;
+    background: transparent;
+    border: none;
+    width: 100%;
+}
+
+.mpdf-chart-title {
+    font-size: 9pt;
+    font-weight: bold;
+    color: #1e293b;
+    text-align: center;
+    margin-bottom: 3px;
+}
+
+.mpdf-chart-subtitle {
+    font-size: 7pt;
+    color: #64748b;
+    text-align: center;
+    margin-bottom: 8px;
+    font-style: italic;
+}
+
+/* ===== GRÁFICO CENTRADO ===== */
+.mpdf-chart-center {
+    text-align: center;
+    margin-bottom: 15px;
+}
+
+.mpdf-chart-center svg {
+    max-width: 220px;
+    max-height: 220px;
+    margin: 0 auto;
+    display: block;
+}
+
+/* ===== SECCIÓN DE DISTRIBUCIÓN DE ANÁLISIS ===== */
+.mpdf-distribution-section {
+    width: 100%;
+    margin-top: 10px;
+    padding: 0px;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 2px; /* Reducido de 4px a 2px para ser coherente */
+}
+
+.mpdf-distribution-title {
+    font-size: 10pt;
+    font-weight: bold;
+    color: #1e293b;
+    margin-bottom: 8px;
+    text-align: center;
+    border-bottom: 2px solid #3b82f6;
+    padding-bottom: 4px;
+}
+
+/* ===== TABLA DE ANÁLISIS PROFESIONAL (ESTILO PREFERIDO) ===== */
+.mpdf-analysis-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 0px;
+    font-size: 8pt;
+    border: 1px solid #cbd5e1;
+}
+
+.mpdf-analysis-table thead th {
+    background: linear-gradient(135deg, #1e40af 0%, #3b82f6 100%);
+    color: #ffffff;
+    font-weight: bold;
+    text-align: center;
+    padding: 8px 6px;
+    border: 1px solid #1d4ed8;
+    font-size: 10pt;
+}
+
+.mpdf-analysis-table tbody td {
+    padding: 6px 8px;
+    border: 1px solid #e5e7eb;
+    vertical-align: middle;
+    font-size: 10pt;
+}
+
+.mpdf-analysis-category {
+    background-color: #f8fafc;
+    color: #1e293b;
+    font-weight: 600;
+    text-align: left;
+    width: 20%;
+}
+
+.mpdf-analysis-quantity {
+    background-color: #ffffff;
+    text-align: center;
+    width: 15%;
+    font-weight: bold;
+}
+
+.mpdf-analysis-percentage {
+    background-color: #ffffff;
+    text-align: center;
+    width: 15%;
+    font-weight: bold;
+}
+
+.mpdf-analysis-observation {
+    background-color: #f9fafb;
+    color: #64748b;
+    font-style: italic;
+    text-align: left;
+    width: 50%;
+}
+
+.mpdf-analysis-table tbody tr:nth-child(even) {
+    background-color: #f9fafb;
+}
+
+.mpdf-analysis-table tbody tr:nth-child(odd) {
+    background-color: #ffffff;
+}
+
+/* ===== TÍTULO DE ANÁLISIS ===== */
+.mpdf-distribution-title {
+    font-size: 10pt;
+    font-weight: bold;
+    color: #1e293b;
+    margin-bottom: 8px;
+    text-align: center;
+    border-bottom: 2px solid #3b82f6;
+    padding-bottom: 4px;
+}
+
+/* ===== MANTENIDO: CLASES SVG ACTIVAS ===== */
+/* Nota: Las clases chart-svg, chart-segment y chart-center se usan en funciones_graficos_mpdf.php 
+   pero no necesitan estilos CSS específicos ya que son elementos SVG con atributos inline */
+
+/* ===== CONTENEDOR PARA LAYOUT HORIZONTAL SIN INTERFERENCIAS ===== */
+.mpdf-horizontal-section {
+    margin: 10px 0;
+    padding: 0;
+    background: transparent;
+    text-align: left; /* Importante: NO center */
+    overflow: visible;
+}

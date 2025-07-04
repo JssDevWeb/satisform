@@ -1,0 +1,1712 @@
+/* ============================================
+   SISTEMA DE ENCUESTAS ACADÉMICAS - CSS OPTIMIZADO
+   Diseño mejorado, responsivo y equilibrado
+   ============================================ */
+
+/* Variables CSS mejoradas */
+:root {
+    /* Colores principales - HEADER ARMONIOSO */
+    --primary-color: #0d6efd;
+    --primary-light: #6ea8fe;
+    --primary-dark: #0a58ca;
+    --header-color: #2c3e50; /* Color más neutro y profesional */
+    --header-light: #34495e;
+    --secondary-color: #6c757d;
+    --success-color: #198754;
+    --info-color: #0dcaf0;
+    --warning-color: #ffc107;
+    --danger-color: #dc3545;
+    --light-color: #f8f9fa;
+    --dark-color: #212529;
+      /* Colores de fondo y texto - MODO CLARO por defecto */
+    --body-bg: #f5f7fa;
+    --body-color: #212529;
+    --bg-gradient: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+    --card-bg: #ffffff;
+    --table-bg: #ffffff;
+    --hover-bg: #f8f9fa;
+    --border-color: rgba(13, 110, 253, 0.1);
+    --text-muted: #6c757d;
+    
+    /* Variables específicas para textareas y contadores */
+    --textarea-bg: #ffffff;
+    --textarea-color: #212529;
+    --textarea-border: #dee2e6;
+    --textarea-focus-border: #86b7fe;
+    --textarea-focus-bg: #ffffff;
+    --char-counter-color: #6c757d;
+    --char-counter-warning: #ffc107;
+    --char-counter-danger: #dc3545;
+    
+    /* Espaciado y bordes */
+    --border-radius: 0.5rem;
+    --border-radius-lg: 1rem;
+    --border-radius-sm: 0.25rem;
+    --box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+    --box-shadow-lg: 0 0.5rem 1.5rem rgba(0, 0, 0, 0.1);
+    --box-shadow-hover: 0 0.25rem 1rem rgba(0, 0, 0, 0.15);
+    --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    
+    /* Tipografía */
+    --font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, 'Roboto', 'Helvetica Neue', Arial, sans-serif;
+    --font-size-base: 1rem;
+    --font-size-sm: 0.875rem;
+    --font-size-lg: 1.125rem;
+    --line-height: 1.5;
+    
+    /* Breakpoints */
+    --mobile: 768px;
+    --tablet: 992px;
+    --desktop: 1200px;
+}
+
+/* Variables para MODO OSCURO */
+[data-theme="dark"] {
+    --body-bg: #0f1419;
+    --body-color: #f8f9fa;
+    --bg-gradient: linear-gradient(135deg, #0f1419 0%, #1a2332 100%);
+    --card-bg: #1e2936;
+    --table-bg: #1e2936;
+    --hover-bg: #2d3748;
+    --border-color: rgba(255, 255, 255, 0.12);
+    --text-muted: #e2e8f0;
+    --box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.5);
+    --box-shadow-lg: 0 0.5rem 1.5rem rgba(0, 0, 0, 0.6);
+    --box-shadow-hover: 0 0.25rem 1rem rgba(0, 0, 0, 0.7);
+    
+    /* Variables específicas para textareas en modo oscuro */
+    --textarea-bg: #2d3748;
+    --textarea-color: #f8f9fa;
+    --textarea-border: #4a5568;
+    --textarea-focus-border: #63b3ed;
+    --textarea-focus-bg: #374151;
+    --char-counter-color: #e2e8f0;
+    --char-counter-warning: #fbbf24;
+    --char-counter-danger: #f87171;
+}
+
+/* Correcciones específicas para modo oscuro - Bootstrap overrides */
+[data-theme="dark"] .text-muted {
+    color: var(--text-muted) !important;
+}
+
+[data-theme="dark"] .text-primary {
+    color: var(--primary-light) !important;
+}
+
+/* Asegurar que los títulos de sección se vean bien en ambos modos */
+[data-theme="dark"] .section-title {
+    color: var(--body-color) !important;
+}
+
+/* Correcciones específicas para alertas de Bootstrap en modo oscuro */
+[data-theme="dark"] .alert-info {
+    background-color: rgba(13, 110, 253, 0.15) !important;
+    border-color: rgba(13, 110, 253, 0.3) !important;
+    color: var(--body-color) !important;
+}
+
+[data-theme="dark"] .alert-info h6 {
+    color: var(--body-color) !important;
+}
+
+[data-theme="dark"] .alert-info .bi-info-circle {
+    color: var(--primary-light) !important;
+}
+
+/* Reforzar text-muted en contextos específicos */
+[data-theme="dark"] .alert .text-muted {
+    color: var(--text-muted) !important;
+    opacity: 0.9;
+}
+
+/* Reset mejorado */
+*,
+*::before,
+*::after {
+    box-sizing: border-box;
+}
+
+/* Base del documento */
+html {
+    scroll-behavior: smooth;
+    font-size: 16px;
+}
+
+body {
+    font-family: var(--font-family);
+    font-size: var(--font-size-base);
+    line-height: var(--line-height);
+    color: var(--body-color);
+    background: var(--body-bg);
+    margin: 0;
+    padding: 0;
+    min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    /* FOOTER STICKY - Estructura flexbox para mantener footer abajo */
+    display: flex;
+    flex-direction: column;
+    transition: var(--transition);
+}
+
+/* ============================================
+   COMPONENTES BASE
+   ============================================ */
+
+/* Cards mejoradas */
+.card {
+    background: var(--card-bg);
+    border: none;
+    border-radius: var(--border-radius);
+    box-shadow: var(--box-shadow);
+    transition: var(--transition);
+    overflow: hidden;
+}
+
+.card:hover {
+    box-shadow: var(--box-shadow-hover);
+    transform: translateY(-2px);
+}
+
+.card-header {
+    background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-dark) 100%);
+    color: white;
+    border: none;
+    padding: 1.25rem 1.5rem;
+    font-weight: 600;
+    font-size: var(--font-size-lg);
+}
+
+.card-body {
+    padding: 1.5rem;
+}
+
+/* Formularios optimizados */
+.form-control,
+.form-select {
+    border: 2px solid var(--border-color);
+    border-radius: var(--border-radius);
+    padding: 0.75rem 1rem;
+    font-size: var(--font-size-base);
+    transition: var(--transition);
+    background-color: var(--card-bg);
+    color: var(--body-color);
+}
+
+.form-control:focus,
+.form-select:focus {
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.15);
+    outline: none;
+}
+
+.form-control:invalid {
+    border-color: var(--danger-color);
+}
+
+.form-control:valid {
+    border-color: var(--success-color);
+}
+
+/* Estados hover para formularios en ambos modos */
+.form-control:hover,
+.form-select:hover {
+    background-color: var(--hover-bg);
+    border-color: var(--primary-light);
+}
+
+/* Estados focus mejorados para modo oscuro */
+[data-theme="dark"] .form-control:focus,
+[data-theme="dark"] .form-select:focus {
+    box-shadow: 0 0 0 0.25rem rgba(110, 168, 254, 0.25);
+}
+
+/* ============================================
+   PLACEHOLDERS PERSONALIZADOS
+   ============================================ */
+
+/* Estilo general para placeholders */
+.form-control::placeholder,
+textarea.form-control::placeholder {
+    color: #6c757d; /* Color gris suave */
+    opacity: 0.8;
+    font-style: italic;
+    font-weight: 400;
+}
+
+/* Placeholder específico para comentarios/textarea */
+textarea[name*="professor_"]::placeholder,
+.comments-section textarea::placeholder {
+    color: #0dcaf0; /* Color azul info */
+    opacity: 0.9;
+    font-style: italic;
+    font-weight: 500;
+}
+
+/* Hover en el placeholder */
+.form-control:hover::placeholder {
+    color: var(--primary-color);
+    opacity: 0.7;
+    transition: var(--transition);
+}
+
+/* Focus en el placeholder */
+.form-control:focus::placeholder {
+    color: var(--primary-light);
+    opacity: 0.6;
+}
+
+/* Modo oscuro - placeholders */
+@media (prefers-color-scheme: dark) {
+    .form-control::placeholder,
+    textarea.form-control::placeholder {
+        color: #adb5bd;
+        opacity: 0.8;
+    }
+    
+    textarea[name*="professor_"]::placeholder,
+    .comments-section textarea::placeholder {
+        color: #74c0fc;
+        opacity: 0.9;
+    }
+}
+
+/* ============================================
+   CONTENEDOR PRINCIPAL DEL SURVEY
+   ============================================ */
+
+.survey-container {
+    max-width: 85%; /* Reducido para mejor legibilidad */
+    width: 85%;
+    margin: 0 auto;
+    padding: 2rem 1rem;
+    background: transparent;
+    /* Contribuye al layout flexbox */
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+}
+
+/* ============================================
+   SECCIONES DEL FORMULARIO
+   ============================================ */
+
+.form-section,
+.evaluation-section {
+    background: var(--card-bg);
+    border-radius: var(--border-radius-lg);
+    padding: 3rem 3rem;
+    margin: 1.5rem auto;
+    width: 80%; /* Reducido para mejor proporciones */
+    max-width: 800px; /* Ancho máximo más razonable */
+    min-width: min-content; /* Asegura espacio mínimo para el contenido */
+    box-shadow: var(--box-shadow-lg);
+    border: 1px solid var(--border-color);
+    min-height: 650px; /* Altura mínima adecuada */
+    transition: all 0.3s ease-in-out;
+    color: var(--body-color);
+}
+
+.evaluation-section {
+    position: relative;
+    overflow: hidden;
+}
+
+.evaluation-section::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: linear-gradient(90deg, var(--primary-color) 0%, #0b5ed7 50%, var(--primary-color) 100%);
+    border-radius: var(--border-radius-lg) var(--border-radius-lg) 0 0;
+}
+
+.section-title {
+    font-size: 1.5rem; /* Tamaño más equilibrado */
+    font-weight: 700;
+    margin-bottom: 1.5rem; /* Espacio reducido */
+    padding-bottom: 0.75rem;
+    border-bottom: 3px solid var(--primary-color);
+    color: var(--body-color);
+}
+
+.evaluation-section .section-title,
+.evaluation-form-section .section-title {
+    background: linear-gradient(135deg, var(--primary-color) 0%, #0b5ed7 100%);
+    color: white;
+    padding: 1rem 1.5rem;
+    margin: -3rem -3rem 2rem -3rem;
+    border-radius: var(--border-radius-lg) var(--border-radius-lg) 0 0;
+    text-align: center;
+    box-shadow: 0 4px 12px rgba(13, 110, 253, 0.2);
+    border-bottom: none;
+    position: relative;
+}
+
+.evaluation-section .section-title::after,
+.evaluation-form-section .section-title::after {
+    content: '';
+    position: absolute;
+    bottom: -10px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 0;
+    height: 0;
+    border-left: 15px solid transparent;
+    border-right: 15px solid transparent;
+    border-top: 10px solid #0b5ed7;
+}
+
+/* ============================================
+   ESCALA DE EVALUACIÓN HORIZONTAL - VERSIÓN LIMPIA FINAL
+   ============================================ */
+
+/* Información de la escala - Solo estilos necesarios */
+.evaluation-scale-info {
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    border: 2px solid #2c3e50;
+    border-radius: 1rem;
+    padding: 1.5rem;
+    margin: 1rem auto;
+    box-shadow: 0 6px 20px rgba(44, 62, 80, 0.15);
+    width: 90%;
+    max-width: 90vw;
+    position: relative;
+    overflow: hidden;
+}
+
+/* Título de la escala */
+.evaluation-scale-info h6 {
+    color: #2c3e50;
+    font-weight: 700;
+    font-size: 1.2rem;
+    margin-bottom: 1rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    text-align: center;
+    text-shadow: 0 2px 4px rgba(44, 62, 80, 0.2);
+    background: rgba(255, 255, 255, 0.9);
+    padding: 0.5rem 1.5rem;
+    border-radius: 25px;
+    margin: 0 auto 1rem auto;
+    max-width: fit-content;
+    border: 2px solid rgba(44, 62, 80, 0.2);
+}
+
+/* Container principal de la escala - HORIZONTAL FIJO */
+.scale-horizontal-container {
+    display: flex !important; /* Necesario para anular cualquier display de Bootstrap */
+    justify-content: center;
+    align-items: stretch;
+    flex-direction: row !important; /* Crítico para mantener horizontal */
+    flex-wrap: nowrap !important; /* Crítico para evitar wrapping */
+    gap: 0.75rem;
+    margin: 1rem auto;
+    width: auto;
+    min-width: min-content;
+    position: relative;
+}
+
+/* Wrapper de cada elemento de la escala */
+.scale-item-wrapper {
+    flex: 1;
+    display: flex;
+    justify-content: center;
+    align-items: stretch;
+    min-width: auto;
+    max-width: none;
+    float: none;
+    position: relative;
+}
+
+/* Elemento individual de la escala */
+.scale-item {
+    background: rgba(255, 255, 255, 0.95);
+    border: 2px solid #2c3e50;
+    border-radius: 15px;
+    padding: 1rem 0.75rem;
+    text-align: center;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 2px 8px rgba(44, 62, 80, 0.1);
+    position: relative;
+    overflow: hidden;
+    min-width: 90px;
+    max-width: 110px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    height: 100%;
+}
+
+.scale-item:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 25px rgba(44, 62, 80, 0.25);
+    background: rgba(255, 255, 255, 1);
+    border-color: #0d6efd;
+    border-width: 2px;
+}
+
+/* Emojis de la escala */
+.emoji-display {
+    font-size: 1.5rem; /* Tamaño unificado */
+    line-height: 1;
+    margin-bottom: 0.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 1.5rem;
+    width: 100%;
+    text-align: center;
+}
+
+/* Texto de la escala */
+.scale-item small {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: #2c3e50;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    line-height: 1.2;
+    display: block;
+    margin-top: 0.5rem;
+    width: 100%;
+    text-align: center;
+}
+
+/* RESPONSIVE - MÓVIL */
+@media (max-width: 768px) {
+    .scale-horizontal-container {
+        gap: 0.25rem;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: thin;
+        padding: 0;
+        flex-direction: row !important; /* Mantener para asegurar horizontal */
+        display: flex !important; /* Mantener para anular posibles cambios */
+        flex-wrap: nowrap !important; /* Crítico para evitar wrapping */
+        width: auto;
+    }
+    
+    .scale-item-wrapper {
+        flex: 0 0 auto;
+        min-width: auto;
+        max-width: none;
+        display: flex;
+        float: none;
+        width: auto;
+    }
+      .scale-item {
+        padding: 0.75rem 0.5rem;
+        max-width: none;
+        min-width: auto;
+        display: flex;
+        min-width: 80px;
+        max-width: 95px;
+        flex-direction: column;
+        align-items: center;
+        justify-content: space-between;
+    }
+    
+    .emoji-display {
+        font-size: 1.0rem; /* Ajustado para tablet */
+        height: 1.0rem;
+        margin-bottom: 0.5rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    
+    .scale-item small {
+        font-size: 0.7rem;
+        display: block;
+    }
+}
+
+@media (max-width: 480px) {
+    .scale-horizontal-container {
+        gap: 0.125rem;
+    }
+    
+    .scale-item-wrapper {
+        min-width: 70px;
+        max-width: 85px;
+    }
+    
+    .scale-item {
+        padding: 0.5rem 0.25rem;
+        max-width: 80px;
+        min-width: 65px;
+    }
+      .emoji-display {
+        font-size: 0.8rem; /* Ajustado para móvil pequeño */
+        height: 0.8rem;
+        margin-bottom: 0.25rem;
+    }
+    
+    .scale-item small {
+        font-size: 0.65rem;
+        line-height: 1.1;
+    }
+}
+
+/* ============================================
+   TABLA DE EVALUACIÓN
+   ============================================ */
+
+.evaluation-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    background: var(--table-bg);
+    border-radius: var(--border-radius-lg);
+    overflow: hidden;
+    box-shadow: var(--box-shadow-lg);
+    margin: 1.5rem auto;
+    border: 1px solid var(--border-color);
+    color: var(--body-color);
+}
+
+.evaluation-table th {
+    background: var(--hover-bg);
+    color: var(--body-color);
+    font-weight: 700;
+    padding: 1rem 0.75rem;
+    text-align: center;
+    border: none;
+    font-size: var(--font-size-sm);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    border-bottom: 2px solid var(--border-color);
+}
+
+.evaluation-table th:first-child {
+    text-align: left;
+    padding-left: 1.5rem;
+    min-width: 250px;
+    text-transform: none;
+    font-size: var(--font-size-base);
+}
+
+/* Headers específicos con emojis - texto arriba, emoji grande */
+.evaluation-table th.emoji-header {
+    vertical-align: top !important; /* Bootstrap anula esto, necesario */
+    padding: 0.5rem 0.75rem 1.5rem 0.75rem !important; /* Bootstrap tiene padding específico */
+    font-size: 0.85rem;
+    line-height: 1.2;
+    text-transform: none !important; /* Bootstrap pone uppercase por defecto */
+    position: relative;
+    height: 80px !important; /* Asegurar altura específica */
+    text-align: center;
+}
+
+/* Separar texto y emoji en headers */
+.evaluation-table th.emoji-header::after {
+    content: '';
+    position: absolute;
+    bottom: 8px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 2.0rem; /* Más pequeño para coincidir con la imagen */
+    line-height: 1;
+}
+
+/* Emojis específicos para cada header */
+.evaluation-table th.emoji-header:nth-child(2)::after { content: '😃'; }
+.evaluation-table th.emoji-header:nth-child(3)::after { content: '🙂'; }
+.evaluation-table th.emoji-header:nth-child(4)::after { content: '😐'; }
+.evaluation-table th.emoji-header:nth-child(5)::after { content: '😕'; }
+.evaluation-table th.emoji-header:nth-child(6)::after { content: '😞'; }
+
+.evaluation-table td {
+    padding: 1rem 0.75rem;
+    border: none;
+    border-bottom: 1px solid var(--border-color);
+    text-align: center;
+    vertical-align: middle;
+    transition: var(--transition);
+    background: var(--table-bg);
+}
+
+.evaluation-table td:first-child {
+    text-align: left;
+    padding-left: 1.5rem;
+    font-weight: 500;
+    color: var(--body-color);
+    background: var(--hover-bg);
+    border-right: 2px solid var(--border-color);
+}
+
+.evaluation-table tr:hover td {
+    background-color: var(--hover-bg);
+    transform: scale(1.01);
+}
+
+.evaluation-table tr:hover td:first-child {
+    background: linear-gradient(135deg, rgba(13, 110, 253, 0.1) 0%, rgba(13, 110, 253, 0.05) 100%);
+}
+
+.evaluation-table tr:last-child td {
+    border-bottom: none;
+}
+
+/* ============================================
+   CELDAS DE EMOJI
+   ============================================ */
+
+.emoji-cell {
+    position: relative;
+    cursor: pointer;
+    min-width: 80px;
+    min-height: 60px;
+    transition: var(--transition);
+    user-select: none;
+    border-radius: var(--border-radius);
+    background: linear-gradient(135deg, rgba(248, 249, 250, 0.3) 0%, rgba(233, 236, 239, 0.1) 100%);
+}
+
+.emoji-cell:hover {
+    background: linear-gradient(135deg, rgba(13, 110, 253, 0.1) 0%, rgba(13, 110, 253, 0.05) 100%);
+    transform: scale(1.05);
+    box-shadow: 0 4px 12px rgba(13, 110, 253, 0.2);
+    border: 2px solid rgba(13, 110, 253, 0.3);
+}
+
+.emoji-cell.selected {
+    background: linear-gradient(135deg, var(--primary-color) 0%, #0b5ed7 100%);
+    color: white;
+    transform: scale(1.02);
+    box-shadow: 0 6px 20px rgba(13, 110, 253, 0.4);
+    border: 2px solid rgba(255, 255, 255, 0.2);
+}
+
+.emoji-cell.selected:hover {
+    background: linear-gradient(135deg, #0b5ed7 0%, #084298 100%);
+    box-shadow: 0 8px 25px rgba(13, 110, 253, 0.5);
+}
+
+.emoji-cell input[type="radio"] {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    opacity: 0;
+    cursor: pointer;
+    margin: 0;
+}
+
+.emoji-cell::after {
+    content: attr(data-label);
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: linear-gradient(135deg, rgba(0, 0, 0, 0.9) 0%, rgba(33, 37, 41, 0.95) 100%);
+    color: white;
+    padding: 0.75rem 1rem;
+    border-radius: var(--border-radius);
+    font-size: 0.875rem;
+    font-weight: 600;
+    white-space: nowrap;
+    opacity: 0;
+    transition: all 0.3s ease-in-out;
+    pointer-events: none;
+    z-index: 20;
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
+    border: 2px solid rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(10px);
+}
+
+.emoji-cell:hover::after {
+    opacity: 1;
+}
+
+/* Estilos para emojis dinámicos */
+.emoji-only {
+    font-size: 2rem;
+    display: block;
+    text-align: center;
+    line-height: 1.2;
+    position: relative;
+    z-index: 1;
+    margin: 0.25rem 0;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    /* Mejorar renderizado de emojis */
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+/* Emoji visible solo cuando la celda está seleccionada */
+.emoji-cell.selected .emoji-only {
+    display: block;
+}
+
+/* Por defecto oculto */
+.emoji-cell .emoji-only {
+    display: none;
+}
+
+/* ============================================
+   BOTONES
+   ============================================ */
+
+.btn {
+    border-radius: var(--border-radius);
+    font-weight: 600;
+    padding: 0.75rem 1.5rem;
+    transition: var(--transition);
+    border: none;
+    font-size: var(--font-size-base);
+}
+
+.submit-btn {
+    background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-dark) 100%);
+    color: white;
+    padding: 1rem 2rem;
+    border-radius: var(--border-radius-lg);
+    font-size: var(--font-size-lg);
+    font-weight: 700;
+    box-shadow: var(--box-shadow);
+    border: none;
+    cursor: pointer;
+    transition: var(--transition);
+}
+
+.submit-btn:hover {
+    background: linear-gradient(135deg, var(--primary-dark) 0%, #084298 100%);
+    transform: translateY(-2px);
+    box-shadow: var(--box-shadow-lg);
+}
+
+.start-survey-btn {
+    background: linear-gradient(135deg, #0d6efd 0%, #0b5ed7 50%, #0a58ca 100%);
+    color: white;
+    padding: 1.25rem 2.5rem;
+    border-radius: 2rem;
+    font-size: 1.2rem;
+    font-weight: 600;
+    box-shadow: 0 0.5rem 1.5rem rgba(13, 110, 253, 0.3);
+    border: none;
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    text-transform: none;
+    letter-spacing: 0.5px;
+    display: block;
+    margin: 2rem auto;
+    text-align: center;
+    min-width: 280px;
+}
+
+.start-survey-btn:hover {
+    background: linear-gradient(135deg, #0b5ed7 0%, #0a58ca 50%, #084298 100%);
+    transform: translateY(-3px) scale(1.02);
+    box-shadow: 0 0.75rem 2rem rgba(13, 110, 253, 0.4);
+}
+
+/* ============================================
+   DISEÑO PROFESIONAL UX PARA PANTALLA PRINCIPAL
+   ============================================ */
+
+/* Contenedor principal con diseño moderno */
+#intro-text {
+    background: var(--card-bg);
+    border-radius: 2rem;
+    padding: 0;
+    box-shadow: var(--box-shadow-lg);
+    border: 1px solid var(--border-color);
+    margin: 3rem auto;
+    max-width: 800px; /* Reducido para mejor proporciones */
+    width: 85%; /* Ancho relativo más apropiado */
+    overflow: hidden;
+    position: relative;
+    color: var(--body-color);
+    transition: var(--transition);
+}
+
+/* Efecto de gradiente superior decorativo */
+#intro-text::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 6px;
+    background: linear-gradient(90deg, 
+        var(--primary-color) 0%, 
+        #0b5ed7 25%, 
+        #0dcaf0 50%, 
+        #0b5ed7 75%, 
+        var(--primary-color) 100%);
+    border-radius: 2rem 2rem 0 0;
+}
+
+/* Header de bienvenida */
+.intro-section {
+    padding: 1.5rem 2rem 1rem 2rem;
+    position: relative;
+    background-color: var(--card-bg);
+    color: var(--body-color);
+    border-radius: 0.75rem;
+    margin-top: 1rem;
+    transition: var(--transition);
+}
+
+.intro-section::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: linear-gradient(90deg, #007bff 0%, #4361ee 100%);
+    border-radius: 8px 8px 0 0;
+    opacity: 0.8;
+}
+
+.intro-header {
+    text-align: center;
+    margin-bottom: 1.5rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid var(--border-color);
+    position: relative;
+    animation: fadeInUp 0.8s ease-out;
+    color: var(--body-color);
+}
+
+.intro-header h5 {
+    font-size: 1.75rem;
+    font-weight: 700;
+    color: var(--body-color);
+    margin-bottom: 0.75rem;
+    letter-spacing: -0.5px;
+    line-height: 1.2;
+}
+
+.intro-header .bi-info-circle {
+    font-size: 2rem;
+    color: var(--primary-color);
+    margin-right: 0.75rem;
+    vertical-align: middle;
+}
+
+.intro-subtitle {
+    font-size: 1rem;
+    color: var(--text-muted);
+    font-weight: 400;
+    margin: 0;
+    font-style: italic;
+}
+
+/* Layout de dos columnas profesional */
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes fadeInLeft {
+    from {
+        opacity: 0;
+        transform: translateX(-20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+@keyframes fadeInRight {
+    from {
+        opacity: 0;
+        transform: translateX(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+.intro-body {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 1rem;
+    margin-bottom: 1rem;
+    padding: 0;
+}
+
+/* Sección de instrucciones */
+.intro-instructions {
+    background: var(--card-bg);
+    color: var(--body-color);
+    padding: 1.5rem;
+    border-radius: 0.75rem;
+    border: 1px solid var(--border-color);
+    position: relative;
+    box-shadow: var(--box-shadow-lg);
+    transform: translateZ(0);
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+    animation: fadeInLeft 0.8s ease-out 0.2s both;
+    margin: 0 auto;
+    max-width: 90%;
+}
+
+
+.intro-instructions:hover {
+    box-shadow: var(--box-shadow-hover);
+    transform: translateY(-3px);
+}
+
+.intro-instructions::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, var(--primary-color) 0%, var(--primary-dark) 100%);
+    border-radius: 0.75rem 0.75rem 0 0;
+}
+
+.intro-instructions .section-title {
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: var(--body-color);
+    margin-bottom: 1rem;
+    display: flex;
+    align-items: center;
+}
+
+.intro-instructions .section-title .bi {
+    color: var(--primary-color);
+    font-size: 1.25rem;
+}
+
+.intro-description {
+    font-size: 0.9rem;
+    line-height: 1.6;
+    color: var(--text-muted);
+    margin-bottom: 1.5rem;
+    text-align: justify;
+}
+
+/* Características del sistema mejoradas */
+.system-features {
+    display: flex;
+    justify-content: space-between;
+    gap: 0.5rem;
+    margin-top: 1.5rem;
+}
+
+.feature-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    padding: 0.75rem 0.5rem;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 0.5rem;
+    border: 1px solid rgba(59, 130, 246, 0.2);
+    transition: all 0.3s ease;
+    flex: 1;
+}
+
+.feature-item:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--box-shadow-hover);
+    background: var(--hover-bg);
+}
+
+.feature-item i {
+    font-size: 1.5rem;
+    margin-bottom: 0.5rem;
+    color: var(--primary-color);
+}
+
+.feature-item span {
+    font-weight: 500;
+    font-size: 0.8rem;
+    color: var(--body-color);
+}
+
+/* Columna de escala de evaluación */
+.evaluation-scale-info {
+    background: var(--card-bg);
+    color: var(--body-color);
+    padding: 1.5rem;
+    border-radius: 0.75rem;
+    border: 1px solid var(--border-color);
+    position: relative;
+    box-shadow: var(--box-shadow-lg);
+    transform: translateZ(0);
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+    animation: fadeInRight 0.8s ease-out 0.4s both;
+}
+
+.evaluation-scale-info:hover {
+    box-shadow: var(--box-shadow-hover);
+    transform: translateY(-3px);
+}
+
+.evaluation-scale-info::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, #8b5cf6 0%, #a855f7 100%);
+    border-radius: 0.75rem 0.75rem 0 0;
+}
+
+.evaluation-scale-info .section-title {
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: #ffffff;
+    margin-bottom: 1rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.evaluation-scale-info .section-title .bi {
+    color: #a855f7;
+    font-size: 1.25rem;
+}
+
+/* Escala horizontal mejorada */
+.scale-horizontal-container {
+    display: flex !important;
+    justify-content: space-between;
+    align-items: stretch;
+    flex-direction: row !important;
+    flex-wrap: nowrap !important;
+    gap: 0.3rem;
+    margin: 0;
+    padding: 0.25rem;
+    width: 100%;
+}
+
+.scale-item-wrapper {
+    flex: 1;
+    display: flex;
+    justify-content: center;
+    align-items: stretch;
+    perspective: 800px;
+    min-width: 0;
+}
+
+.scale-item {
+    background: var(--hover-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 0.75rem;
+    padding: 0.75rem 0.25rem;
+    text-align: center;
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: var(--box-shadow);
+    position: relative;
+    overflow: hidden;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: space-between;
+    min-height: 85px;
+    transform-style: preserve-3d;
+    backface-visibility: hidden;
+    height: 100%;
+    color: var(--body-color);
+}
+
+
+.scale-item:hover {
+    transform: rotateY(5deg) scale(1.05);
+    border-color: var(--primary-light);
+    box-shadow: var(--box-shadow-hover);
+    background: var(--hover-bg);
+    z-index: 1;
+}
+
+.scale-item::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(135deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0) 100%);
+    z-index: -1;
+}
+
+.scale-item .emoji-display {
+    font-size: 2rem;
+    margin-bottom: 0.25rem;
+    filter: drop-shadow(0 2px 3px rgba(0,0,0,0.2));
+    display: block;
+    line-height: 1;
+    height: 2.2rem; /* Altura fija para todos los emojis */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.scale-item small {
+    font-weight: 500;
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    display: block;
+    width: 100%;
+    text-align: center;
+    letter-spacing: 0.5px;
+}
+
+/* ============================================
+   RESPONSIVE - SELECTOR DE CURSOS
+   ============================================ */
+
+/* Tablet */
+@media (max-width: 992px) {
+    #step1-course-selection .form-section {
+        padding: 2rem;
+        width: 95%;
+        margin: 1rem auto;
+    }
+    
+    #step1-course-selection .section-title {
+        font-size: 1.3rem;
+        padding: 0.75rem 1.5rem;
+    }
+    
+    #step1-course-selection .form-select {
+        font-size: 1rem;
+        padding: 1rem 1.25rem;
+    }
+}
+
+/* Mobile */
+@media (max-width: 768px) {
+    #step1-course-selection .form-section {
+        padding: 1.5rem;
+        width: 98%;
+        margin: 0.5rem auto;
+        min-height: auto;
+    }
+    
+    #step1-course-selection .section-title {
+        font-size: 1.1rem;
+        padding: 0.5rem 1rem;
+        margin-bottom: 1.5rem;
+    }
+    
+    #step1-course-selection .form-label {
+        font-size: 1rem;
+        margin-bottom: 0.75rem;
+    }
+    
+    #step1-course-selection .form-select {
+        font-size: 0.95rem;
+        padding: 0.875rem 1rem;
+        padding-right: 3rem;
+        min-height: 48px;
+    }
+    
+    #step1-course-selection .form-group {
+        margin-bottom: 1.5rem;
+    }
+    
+    #profesoresInfo {
+        padding: 1.5rem;
+        margin: 1rem 0;
+    }
+    
+    #profesoresInfo h6 {
+        font-size: 1rem;
+    }
+    
+    #profesoresList li {
+        padding: 0.5rem 0.75rem;
+        font-size: 0.9rem;
+    }
+}
+
+/* Small mobile */
+@media (max-width: 480px) {
+    #step1-course-selection .form-section {
+        padding: 1rem;
+        border-radius: 8px;
+    }
+    
+    #step1-course-selection .section-title {
+        font-size: 1rem;
+        padding: 0.5rem 0.75rem;
+        border-radius: 20px;
+    }
+    
+    #step1-course-selection .form-select {
+        font-size: 0.9rem;
+        padding: 0.75rem 0.875rem;
+        padding-right: 2.5rem;
+        border-radius: 8px;
+    }
+}
+
+/* ============================================
+   FIN CORRECCIONES
+   ============================================ */
+
+/* ============================================
+   ANIMACIONES Y TRANSICIONES
+   ============================================ */
+
+/* Animación de desvanecimiento para salida */
+.fadeOut {
+    opacity: 0;
+    transform: translateY(-20px);
+    transition: opacity 0.5s ease, transform 0.5s ease;
+}
+
+/* Configuración inicial del contenedor de formulario - RESTAURADO FLUJO ORIGINAL */
+#form-container {
+    display: none; /* Oculto por defecto - se muestra al hacer clic en "Comenzar" */
+    opacity: 0;
+    width: 100%;
+    margin: 0 auto;
+    transition: opacity 0.8s ease;
+}
+
+#form-container.visible {
+    display: block;
+    opacity: 1;
+}
+
+/* Transiciones suaves para pasos del formulario */
+.survey-step {
+    transition: opacity 0.5s ease, transform 0.5s ease;
+}
+
+/* ============================================
+   TOGGLE DE TEMA CLARO/OSCURO
+   ============================================ */
+
+.theme-toggle-container {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 1000;
+}
+
+.theme-toggle {
+    background: var(--card-bg);
+    border: 2px solid var(--border-color);
+    border-radius: 50px;
+    width: 50px;
+    height: 50px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: var(--transition);
+    box-shadow: var(--box-shadow);
+    font-size: 1.2rem;
+    color: var(--body-color);
+}
+
+.theme-toggle:hover {
+    box-shadow: var(--box-shadow-hover);
+    transform: translateY(-2px);
+    border-color: var(--primary-color);
+}
+
+.theme-toggle:active {
+    transform: translateY(0);
+}
+
+/* Animación del icono */
+.theme-toggle-icon {
+    transition: transform 0.3s ease;
+}
+
+.theme-toggle:hover .theme-toggle-icon {
+    transform: rotate(180deg);
+}
+
+/* Responsive para móviles */
+@media (max-width: 768px) {
+    .theme-toggle-container {
+        top: 15px;
+        right: 15px;
+    }
+    
+    .theme-toggle {
+        width: 45px;
+        height: 45px;
+        font-size: 1.1rem;
+    }
+}
+
+/* Responsive para tarjetas */
+@media (max-width: 768px) {
+    #intro-text {
+        width: 95%;
+        max-width: none;
+        margin: 2rem auto;
+    }
+    
+    .form-section,
+    .evaluation-section {
+        width: 95%;
+        max-width: none;
+        padding: 2rem 1.5rem;
+    }
+    
+    .evaluation-form-section {
+        width: 95%;
+        max-width: none;
+        padding: 2rem 1.5rem;
+    }
+    
+    .survey-container {
+        width: 95%;
+        max-width: none;
+        padding: 1rem 0.5rem;
+    }
+}
+
+@media (max-width: 480px) {
+    #intro-text {
+        width: 98%;
+        border-radius: 1rem;
+    }
+    
+    .form-section,
+    .evaluation-section {
+        width: 98%;
+        padding: 1.5rem 1rem;
+    }
+    
+    .evaluation-form-section {
+        width: 98%;
+        padding: 1.5rem 1rem;
+    }
+}
+
+/* Clase específica para la tarjeta del formulario de evaluación */
+.evaluation-form-section {
+    background: var(--card-bg);
+    border-radius: var(--border-radius-lg);
+    padding: 3rem 3rem;
+    margin: 1.5rem auto;
+    width: 90%; /* Ancho original restaurado para el formulario */
+    max-width: 90vw; /* Ancho máximo original restaurado */
+    min-width: min-content;
+    box-shadow: var(--box-shadow-lg);
+    border: 1px solid var(--border-color);
+    min-height: 650px;
+    transition: all 0.3s ease-in-out;
+    color: var(--body-color);
+    position: relative;
+    overflow: hidden;
+}
+
+/* Reglas específicas para el mensaje de profesores */
+#profesoresInfo {
+    background-color: var(--hover-bg);
+    border: 1px solid var(--border-color);
+    color: var(--body-color);
+    transition: var(--transition);
+}
+
+#profesoresInfo h6 {
+    color: var(--body-color);
+    margin-bottom: 1rem;
+}
+
+#profesoresInfo .bi-info-circle {
+    color: var(--primary-color);
+}
+
+#profesoresList ul {
+    margin: 0;
+    padding-left: 1.2rem;
+}
+
+#profesoresList li {
+    color: var(--body-color);
+    margin-bottom: 0.5rem;
+    line-height: 1.4;
+}
+
+#profesoresList li strong {
+    color: var(--body-color);
+}
+
+/* Reglas específicas adicionales para modo oscuro */
+[data-theme="dark"] #profesoresInfo {
+    background-color: rgba(13, 110, 253, 0.1) !important;
+    border-color: rgba(13, 110, 253, 0.25) !important;
+}
+
+[data-theme="dark"] #profesoresList li {
+    color: var(--body-color) !important;
+}
+
+[data-theme="dark"] #profesoresList li strong {
+    color: #ffffff !important;
+}
+
+/* ============================================
+   ESTILOS DE VALIDACIÓN Y ERRORES
+   ============================================ */
+
+/* ========================================
+   SISTEMA DE VALIDACIÓN VISUAL - VERSIÓN LIMPIA
+   ======================================== */
+
+/* Variables específicas para validación */
+:root {
+    --validation-error-color: #dc3545;
+    --validation-error-bg: rgba(220, 53, 69, 0.1);
+    --validation-error-border: rgba(220, 53, 69, 0.3);
+    --validation-error-shadow: rgba(220, 53, 69, 0.25);
+}
+
+[data-theme="dark"] {
+    --validation-error-color: #ff6b6b;
+    --validation-error-bg: rgba(255, 107, 107, 0.15);
+    --validation-error-border: rgba(255, 107, 107, 0.4);
+    --validation-error-shadow: rgba(255, 107, 107, 0.3);
+}
+
+/* ===== ESTILO PRINCIPAL PARA FILAS DE TABLA CON ERROR ===== */
+.missing-answer {
+    border: 2px solid var(--validation-error-color) !important;
+    background: var(--validation-error-bg) !important;
+    box-shadow: 0 0 15px var(--validation-error-shadow) !important;
+    /* OPTIMIZADO: animación limitada para evitar consumo excesivo de memoria */
+    animation: errorHighlight 3s ease-in-out 3 alternate !important;
+    /* REMOVIDO: position: relative - causaba desplazamiento del texto */
+    transition: all 0.3s ease;
+}
+
+/* Indicador de error en la primera celda (columna de texto) */
+.missing-answer td:first-child::before {
+    content: "⚠️";
+    display: inline-block;
+    margin-right: 8px;
+    background: var(--validation-error-color);
+    color: white;
+    border-radius: 50%;
+    width: 18px;
+    height: 18px;
+    line-height: 18px;
+    text-align: center;
+    font-size: 9px;
+    vertical-align: middle;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+/* Resaltar celdas de emojis en filas con error */
+.missing-answer .emoji-cell {
+    background-color: var(--validation-error-bg) !important;
+    border-color: var(--validation-error-color) !important;
+    /* REMOVIDO: transform que causaba desplazamiento */
+}
+
+/* Resaltar texto de pregunta en filas con error - SIN DESPLAZAMIENTO */
+.missing-answer td:first-child {
+    color: var(--validation-error-color) !important;
+    font-weight: 600 !important;
+    /* Mantener alineación original de la tabla */
+    text-align: left !important;
+    padding-left: 1.5rem !important;
+    /* Asegurar que el texto no se desplace */
+    position: static !important;
+    display: table-cell !important;
+    vertical-align: middle !important;
+}
+
+/* ===== ESTILO PARA CONTENEDORES DE SECCIÓN CON ERROR ===== */
+.border-danger {
+    border: 2px solid var(--validation-error-color) !important;
+    border-radius: var(--border-radius) !important;
+    background: var(--validation-error-bg) !important;
+    padding: 1rem !important;
+    box-shadow: 0 0 15px var(--validation-error-shadow) !important;
+    animation: sectionError 0.5s ease-out !important;
+    position: relative;
+    transition: all 0.3s ease;
+}
+
+.border-danger::after {
+    content: "❌ Completa esta sección";
+    position: absolute;
+    top: -10px;
+    left: 15px;
+    background: var(--validation-error-color);
+    color: white;
+    padding: 4px 8px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 600;
+    z-index: 10;
+}
+
+/* ===== ESTILO PARA INPUTS INDIVIDUALES CON ERROR ===== */
+.is-invalid {
+    border-color: var(--validation-error-color) !important;
+    box-shadow: 0 0 0 0.2rem var(--validation-error-shadow) !important;
+    background: var(--validation-error-bg) !important;
+    animation: inputShake 0.4s ease-out !important;
+}
+
+/* ===== FEEDBACK INSTANTÁNEO POSITIVO ===== */
+.just-completed {
+    border: 2px solid var(--success-color) !important;
+    background: rgba(25, 135, 84, 0.1) !important;
+    box-shadow: 0 0 15px rgba(25, 135, 84, 0.3) !important;
+    transition: all 0.3s ease !important;
+}
+
+[data-theme="dark"] .just-completed {
+    border-color: #20c997 !important;
+    background: rgba(32, 201, 151, 0.15) !important;
+    box-shadow: 0 0 15px rgba(32, 201, 151, 0.3) !important;
+}
+
+/* ===== ANIMACIONES OPTIMIZADAS ===== */
+@keyframes errorHighlight {
+    0% { 
+        box-shadow: 0 0 15px var(--validation-error-shadow);
+    }
+    100% { 
+        box-shadow: 0 0 25px var(--validation-error-shadow);
+    }
+}
+
+@keyframes sectionError {
+    0%, 100% { transform: translateX(0); }
+    25% { transform: translateX(-3px); }
+    75% { transform: translateX(3px); }
+}
+
+@keyframes inputShake {
+    0%, 100% { transform: translateX(0); }
+    25% { transform: translateX(-2px); }
+    75% { transform: translateX(2px); }
+}
+
+/* ===== FIN DE SISTEMA DE VALIDACIÓN ===== */
+
+/* ============================================
+   TEXTAREAS Y CONTADOR DE CARACTERES
+   ============================================ */
+
+/* Estilos específicos para textareas */
+textarea.form-control {
+    background-color: var(--textarea-bg) !important;
+    color: var(--textarea-color) !important;
+    border-color: var(--textarea-border) !important;
+    resize: vertical;
+    min-height: 120px;
+    line-height: 1.5;
+    transition: all 0.3s ease;
+}
+
+/* Estados de focus y hover para textareas */
+textarea.form-control:focus {
+    background-color: var(--textarea-focus-bg) !important;
+    border-color: var(--textarea-focus-border) !important;
+    color: var(--textarea-color) !important;
+    box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25) !important;
+}
+
+textarea.form-control:hover:not(:focus) {
+    border-color: var(--primary-color) !important;
+    background-color: var(--textarea-bg) !important;
+}
+
+/* Override Bootstrap específico para evitar el blanco */
+[data-theme="dark"] textarea.form-control,
+[data-theme="dark"] textarea.form-control:focus,
+[data-theme="dark"] textarea.form-control:hover {
+    background-color: var(--textarea-bg) !important;
+    color: var(--textarea-color) !important;
+}
+
+/* Contador de caracteres */
+.char-counter {
+    display: inline-block;
+    font-size: 0.875rem;
+    color: var(--char-counter-color);
+    margin-top: 0.25rem;
+    font-weight: 500;
+    transition: color 0.3s ease;
+}
+
+/* Estados del contador según el límite */
+.char-counter.warning {
+    color: var(--char-counter-warning) !important;
+    font-weight: 600;
+}
+
+.char-counter.danger {
+    color: var(--char-counter-danger) !important;
+    font-weight: 700;
+    animation: counterPulse 1s ease-in-out infinite alternate;
+}
+
+/* Animación para contador en límite */
+@keyframes counterPulse {
+    0% { opacity: 0.7; }
+    100% { opacity: 1; }
+}
+
+/* Sección de comentarios específica */
+.comments-section {
+    background: var(--card-bg);
+    border-radius: var(--border-radius-lg);
+    padding: 1.5rem;
+    margin: 1rem 0;
+    box-shadow: var(--box-shadow);
+    border: 1px solid var(--border-color);
+    transition: all 0.3s ease;
+}
+
+.comments-section:hover {
+    box-shadow: var(--box-shadow-hover);
+    transform: translateY(-2px);
+}
+
+.comments-section h5 {
+    color: var(--body-color);
+    margin-bottom: 1rem;
+    font-weight: 600;
+}
+
+.comments-section .form-label {
+    color: var(--body-color);
+    font-weight: 500;
+    margin-bottom: 0.5rem;
+}
+
+/* Responsive para textareas */
+@media (max-width: 768px) {
+    textarea.form-control {
+        min-height: 100px;
+        font-size: 16px; /* Evita zoom en iOS */
+    }
+    
+    .char-counter {
+        font-size: 0.8rem;
+    }
+}
