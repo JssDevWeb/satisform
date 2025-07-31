@@ -1,17 +1,12 @@
 <?php
 /**
- * API: Obtener Cursos Activos con Formularios Disponibles
- * 
- * @file get_cursos.php
- * @description Endpoint para obtener la lista de cursos activos que tienen formularios disponibles
+ * API: Obtener Todos los Cursos
+ * * @file get_cursos.php
+ * @description Endpoint para obtener la lista de todos los cursos disponibles en el centro.
  * @method GET
- * @version 1.0
- * @author Sistema de Encuestas Académicas
- * @date 11 de junio de 2025
- * 
- * Parámetros opcionales:
- * - include_stats: boolean - Incluir estadísticas básicas del curso
- * - fecha_referencia: date - Fecha para validar formularios vigentes (formato Y-m-d)
+ * @version 2.0
+ * @author Sistema de Encuestas Académicas (Adaptado)
+ * @date 10 de julio de 2025
  */
 
 // Headers de seguridad y CORS
@@ -32,11 +27,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 // Solo permitir método GET
 if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
     http_response_code(405);
-    echo json_encode([
-        'success' => false,
-        'error' => 'Método no permitido. Use GET.',
-        'code' => 'METHOD_NOT_ALLOWED'
-    ]);
+    echo json_encode(['success' => false, 'error' => 'Método no permitido. Use GET.']);
     exit();
 }
 
@@ -44,179 +35,60 @@ if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
 require_once __DIR__ . '/../config/database.php';
 
 /**
- * Función para registrar logs de API
+ * Función para obtener todos los cursos activos del centro
  */
-function logApiRequest($endpoint, $params, $ip, $userAgent) {
-    $logData = [
-        'timestamp' => date('Y-m-d H:i:s'),
-        'endpoint' => $endpoint,
-        'method' => $_SERVER['REQUEST_METHOD'],
-        'ip' => $ip,
-        'user_agent' => substr($userAgent, 0, 255),
-        'params' => $params
-    ];
-    
-    if (defined('MODO_DESARROLLO') && MODO_DESARROLLO) {
-        error_log('API Request: ' . json_encode($logData));
-    }
-}
-
-/**
- * Función para validar y sanitizar parámetros
- */
-function sanitizeParams() {
-    $params = [];
-    
-    // Parámetro include_stats (boolean)
-    $params['include_stats'] = false;
-    if (isset($_GET['include_stats'])) {
-        $include_stats = filter_var($_GET['include_stats'], FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE);
-        if ($include_stats !== null) {
-            $params['include_stats'] = $include_stats;
-        }
-    }
-    
-    return $params;
-}
-
-/**
- * Función para obtener cursos con formularios activos
- */
-function getCursosConFormularios($pdo, $params) {
+function getCursos($pdo) {
     try {
-        // Query base para cursos con formularios activos
+        // Esta consulta solo selecciona cursos que tienen al menos un módulo
+        // con al menos un formulario de encuesta activo.
         $sql = "
             SELECT DISTINCT
-                c.id,
-                c.nombre,
-                c.descripcion,
-                c.codigo,
-                c.creditos,
-                c.activo,
-                c.fecha_creacion,
-                COUNT(DISTINCT f.id) as total_formularios,
-                COUNT(DISTINCT cp.profesor_id) as total_profesores
+                c.ID_Curso,
+                c.Nombre,
+                c.Tipo,
+                c.Tipo_cuota,
+                c.Duracion_Horas,
+                c.Precio_Curso
+            FROM
+                Curso c
+            INNER JOIN
+                curso_modulo cm ON c.ID_Curso = cm.ID_Curso
+            INNER JOIN
+                formularios f ON cm.ID_Modulo = f.ID_Modulo
+            WHERE
+                f.activo = 1
+            ORDER BY
+                c.Nombre ASC
         ";
         
-        // Si se solicitan estadísticas, agregar campos adicionales
-        if ($params['include_stats']) {
-            $sql .= ",
-                COUNT(DISTINCT e.id) as total_encuestas_completadas,
-                ROUND(AVG(CASE WHEN p.seccion = 'curso' AND r.valor_int IS NOT NULL THEN r.valor_int END), 2) as promedio_evaluacion,
-                MAX(e.fecha_envio) as ultima_evaluacion
-            ";
-        }
-          $sql .= "
-            FROM cursos c
-            INNER JOIN formularios f ON c.id = f.curso_id 
-                AND f.activo = TRUE
-            LEFT JOIN curso_profesores cp ON f.id = cp.formulario_id AND cp.activo = TRUE
-        ";
-        
-        // Joins adicionales para estadísticas
-        if ($params['include_stats']) {
-            $sql .= "
-                LEFT JOIN encuestas e ON f.id = e.formulario_id
-                LEFT JOIN respuestas r ON e.id = r.encuesta_id
-                LEFT JOIN preguntas p ON r.pregunta_id = p.id AND p.activa = TRUE
-            ";
-        }
-        
-        $sql .= "
-            WHERE c.activo = TRUE
-            GROUP BY c.id, c.nombre, c.descripcion, c.codigo, c.creditos, c.activo, c.fecha_creacion
-            ORDER BY c.nombre ASC
-        ";
-          $stmt = $pdo->prepare($sql);
+        $stmt = $pdo->prepare($sql);
         $stmt->execute();
         
         $cursos = $stmt->fetchAll(PDO::FETCH_ASSOC);
         
         // Procesar resultados
         foreach ($cursos as &$curso) {
-            // Convertir campos numéricos
-            $curso['id'] = (int)$curso['id'];
-            $curso['creditos'] = (int)$curso['creditos'];
-            $curso['activo'] = (bool)$curso['activo'];
-            $curso['total_formularios'] = (int)$curso['total_formularios'];
-            $curso['total_profesores'] = (int)$curso['total_profesores'];
-            
-            if ($params['include_stats']) {
-                $curso['total_encuestas_completadas'] = (int)$curso['total_encuestas_completadas'];
-                $curso['promedio_evaluacion'] = $curso['promedio_evaluacion'] ? (float)$curso['promedio_evaluacion'] : null;
-            }
-              // Obtener formularios disponibles para este curso
-            $curso['formularios_disponibles'] = getFormulariosDisponibles($pdo, $curso['id']);
+            $curso['Duracion_Horas'] = (int)$curso['Duracion_Horas'];
+            $curso['Precio_Curso'] = (float)$curso['Precio_Curso'];
         }
         
         return $cursos;
         
     } catch (PDOException $e) {
-        error_log('Error en getCursosConFormularios: ' . $e->getMessage());
-        throw new Exception('Error al consultar cursos');
+        error_log('Error en getCursos: ' . $e->getMessage());
+        throw new Exception('Error al consultar los cursos');
     }
 }
-
-/**
- * Función para obtener formularios disponibles de un curso
- */
-function getFormulariosDisponibles($pdo, $cursoId) {
-    try {
-        $sql = "
-            SELECT 
-                f.id,
-                f.nombre,
-                f.descripcion,
-                f.permite_respuestas_anonimas,
-                COUNT(DISTINCT cp.profesor_id) as total_profesores
-            FROM formularios f
-            LEFT JOIN curso_profesores cp ON f.id = cp.formulario_id AND cp.activo = TRUE
-            WHERE f.curso_id = :curso_id 
-                AND f.activo = TRUE
-            GROUP BY f.id, f.nombre, f.descripcion, f.permite_respuestas_anonimas
-            ORDER BY f.nombre ASC
-        ";
-        
-        $stmt = $pdo->prepare($sql);
-        $stmt->bindParam(':curso_id', $cursoId, PDO::PARAM_INT);        $stmt->execute();
-        
-        $formularios = $stmt->fetchAll(PDO::FETCH_ASSOC);
-        
-        // Procesar resultados
-        foreach ($formularios as &$formulario) {
-            $formulario['id'] = (int)$formulario['id'];
-            $formulario['permite_respuestas_anonimas'] = (bool)$formulario['permite_respuestas_anonimas'];
-            $formulario['total_profesores'] = (int)$formulario['total_profesores'];
-        }
-        
-        return $formularios;
-        
-    } catch (PDOException $e) {
-        error_log('Error en getFormulariosDisponibles: ' . $e->getMessage());
-        return [];
-    }
-}
-
 /**
  * Función principal de procesamiento
  */
 function procesarSolicitud() {
     try {
-        // Obtener información de la solicitud
-        $ip = $_SERVER['REMOTE_ADDR'] ?? 'unknown';
-        $userAgent = $_SERVER['HTTP_USER_AGENT'] ?? 'unknown';
-        
-        // Validar y sanitizar parámetros
-        $params = sanitizeParams();
-        
-        // Registrar la solicitud
-        logApiRequest('get_cursos', $params, $ip, $userAgent);
-        
         // Conectar a la base de datos
         $pdo = getConnection();
         
-        // Obtener cursos
-        $cursos = getCursosConFormularios($pdo, $params);
+        // Obtener cursos con la nueva función
+        $cursos = getCursos($pdo);
         
         // Preparar respuesta exitosa
         $response = [
@@ -224,8 +96,6 @@ function procesarSolicitud() {
             'data' => $cursos,
             'metadata' => [
                 'total_cursos' => count($cursos),
-                'fecha_referencia' => $params['fecha_referencia'],
-                'include_stats' => $params['include_stats'],
                 'timestamp' => date('Y-m-d H:i:s')
             ]
         ];
@@ -243,86 +113,11 @@ function procesarSolicitud() {
         echo json_encode([
             'success' => false,
             'error' => 'Error interno del servidor',
-            'code' => 'INTERNAL_ERROR',
             'error_id' => $error_id,
-            'timestamp' => date('Y-m-d H:i:s')
         ], JSON_UNESCAPED_UNICODE);
     }
 }
 
-/**
- * Rate limiting básico (por IP)
- */
-function checkRateLimit($ip) {
-    $maxRequests = 100; // máximo 100 requests por hora por IP
-    $timeWindow = 3600; // 1 hora en segundos
-    
-    // En desarrollo, no aplicar rate limiting
-    if (defined('MODO_DESARROLLO') && MODO_DESARROLLO) {
-        return true;
-    }
-    
-    // Implementación simple con archivos (en producción usar Redis/Memcached)
-    $rateLimitFile = sys_get_temp_dir() . '/rate_limit_' . md5($ip) . '.txt';
-    
-    $currentTime = time();
-    $requests = [];
-    
-    // Leer requests previos
-    if (file_exists($rateLimitFile)) {
-        $data = file_get_contents($rateLimitFile);
-        $requests = $data ? explode(',', $data) : [];
-    }
-    
-    // Filtrar requests dentro de la ventana de tiempo
-    $requests = array_filter($requests, function($timestamp) use ($currentTime, $timeWindow) {
-        return ($currentTime - (int)$timestamp) < $timeWindow;
-    });
-    
-    // Verificar límite
-    if (count($requests) >= $maxRequests) {
-        return false;
-    }
-    
-    // Agregar request actual
-    $requests[] = $currentTime;
-    
-    // Guardar requests actualizados
-    file_put_contents($rateLimitFile, implode(',', $requests));
-    
-    return true;
-}
+procesarSolicitud();
 
-// ===================================
-// EJECUCIÓN PRINCIPAL
-// ===================================
-
-try {
-    // Verificar rate limiting
-    $ip = $_SERVER['REMOTE_ADDR'] ?? 'unknown';
-    if (!checkRateLimit($ip)) {
-        http_response_code(429);
-        echo json_encode([
-            'success' => false,
-            'error' => 'Límite de solicitudes excedido. Intente más tarde.',
-            'code' => 'RATE_LIMIT_EXCEEDED',
-            'retry_after' => 3600
-        ], JSON_UNESCAPED_UNICODE);
-        exit();
-    }
-    
-    // Procesar solicitud
-    procesarSolicitud();
-    
-} catch (Throwable $e) {
-    // Error crítico no manejado
-    error_log('Error crítico en get_cursos.php: ' . $e->getMessage());
-    
-    http_response_code(500);
-    echo json_encode([
-        'success' => false,
-        'error' => 'Error crítico del sistema',
-        'code' => 'CRITICAL_ERROR'
-    ], JSON_UNESCAPED_UNICODE);
-}
 ?>

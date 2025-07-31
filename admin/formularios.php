@@ -1,328 +1,255 @@
 <?php
+// Comprueba si el usuario ha iniciado sesión como administrador (actualmente comentado)
+define('SISTEMA_ENCUESTAS', true);
+require_once __DIR__ . '/includes/auth_check.php';
+
 /**
  * Panel de Administración - Gestión de Formularios
- * Sistema de Encuestas Académicas
+ * v2.0 con asignación automática de profesores
  */
-
-session_start();
-
-// // Verificar autenticación
-// if (!isset($_SESSION['admin_logged_in']) || $_SESSION['admin_logged_in'] !== true) {
-//     header('Location: login.php');
-//     exit();
-// }
 
 require_once '../config/database.php';
 
-// Procesar acciones
 $message = '';
 $message_type = '';
 
+// Procesar acciones POST (CRUD para Formularios)
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = $_POST['action'] ?? '';
     
     try {
-        $db = Database::getInstance();
-        $pdo = $db->getConnection();
-        
-        switch ($action) {            case 'create':
-                $stmt = $pdo->prepare("INSERT INTO formularios (nombre, curso_id, descripcion, activo, creado_por) VALUES (?, ?, ?, ?, ?)");
-                $result = $stmt->execute([
+        $pdo = getConnection();
+        $pdo->beginTransaction(); // Usar transacciones para asegurar la integridad
+
+        switch ($action) {
+            case 'create':
+                // 1. Insertar el nuevo formulario
+                $stmt = $pdo->prepare("INSERT INTO formularios (nombre, ID_Modulo, descripcion, activo, creado_por) VALUES (?, ?, ?, ?, ?)");
+                $stmt->execute([
                     $_POST['nombre'],
-                    $_POST['curso_id'],
+                    $_POST['ID_Modulo'],
                     $_POST['descripcion'],
                     isset($_POST['activo']) ? 1 : 0,
                     'admin'
                 ]);
-                
-                if ($result) {
-                    $message = "Formulario creado exitosamente";
-                    $message_type = "success";
+                $formulario_id = $pdo->lastInsertId();
+                $modulo_id = $_POST['ID_Modulo'];
+
+                // 2. CAMBIO CLAVE: Buscar automáticamente los profesores de las unidades formativas de este módulo
+                $stmt_find_prof = $pdo->prepare("SELECT DISTINCT ID_Profesor FROM unidad_formativa WHERE ID_Modulo = ? AND ID_Profesor IS NOT NULL");
+                $stmt_find_prof->execute([$modulo_id]);
+                $profesores_ids = $stmt_find_prof->fetchAll(PDO::FETCH_COLUMN, 0);
+
+                // 3. Insertar las relaciones encontradas
+                if (!empty($profesores_ids)) {
+                    $stmt_prof = $pdo->prepare("INSERT INTO formulario_profesores (formulario_id, profesor_id) VALUES (?, ?)");
+                    foreach ($profesores_ids as $profesor_id) {
+                        $stmt_prof->execute([$formulario_id, $profesor_id]);
+                    }
                 }
+                $message = "Formulario creado y profesores asociados automáticamente.";
                 break;
-                  case 'update':
-                $stmt = $pdo->prepare("UPDATE formularios SET nombre = ?, curso_id = ?, descripcion = ?, activo = ? WHERE id = ?");
-                $result = $stmt->execute([
-                    $_POST['nombre'],
-                    $_POST['curso_id'],
-                    $_POST['descripcion'],
-                    isset($_POST['activo']) ? 1 : 0,
-                    $_POST['id']
-                ]);
                 
-                if ($result) {
-                    $message = "Formulario actualizado exitosamente";
-                    $message_type = "success";
+            case 'update':
+                $formulario_id = $_POST['id'];
+                $modulo_id = $_POST['ID_Modulo'];
+                // 1. Actualizar el formulario
+                $stmt = $pdo->prepare("UPDATE formularios SET nombre = ?, ID_Modulo = ?, descripcion = ?, activo = ? WHERE id = ?");
+                $stmt->execute([$_POST['nombre'], $modulo_id, $_POST['descripcion'], isset($_POST['activo']) ? 1 : 0, $formulario_id]);
+
+                // 2. CAMBIO CLAVE: Sincronizar profesores: Borramos los antiguos...
+                $stmt_delete_prof = $pdo->prepare("DELETE FROM formulario_profesores WHERE formulario_id = ?");
+                $stmt_delete_prof->execute([$formulario_id]);
+
+                // 3. ...y volvemos a buscar y asociar los profesores del módulo (por si el módulo ha cambiado)
+                $stmt_find_prof = $pdo->prepare("SELECT DISTINCT ID_Profesor FROM unidad_formativa WHERE ID_Modulo = ? AND ID_Profesor IS NOT NULL");
+                $stmt_find_prof->execute([$modulo_id]);
+                $profesores_ids = $stmt_find_prof->fetchAll(PDO::FETCH_COLUMN, 0);
+
+                if (!empty($profesores_ids)) {
+                    $stmt_prof = $pdo->prepare("INSERT INTO formulario_profesores (formulario_id, profesor_id) VALUES (?, ?)");
+                    foreach ($profesores_ids as $profesor_id) {
+                        $stmt_prof->execute([$formulario_id, $profesor_id]);
+                    }
                 }
+                $message = "Formulario actualizado y profesores resincronizados automáticamente.";
                 break;
                 
             case 'delete':
+                $formulario_id = $_POST['id'];
+                // El borrado en cascada de la BBDD debería funcionar, pero por seguridad lo hacemos explícito
+                $stmt_delete_prof = $pdo->prepare("DELETE FROM formulario_profesores WHERE formulario_id = ?");
+                $stmt_delete_prof->execute([$formulario_id]);
                 $stmt = $pdo->prepare("DELETE FROM formularios WHERE id = ?");
-                $result = $stmt->execute([$_POST['id']]);
-                
-                if ($result) {
-                    $message = "Formulario eliminado exitosamente";
-                    $message_type = "success";
-                }
-                break;
-                
-            case 'toggle_status':
-                $stmt = $pdo->prepare("UPDATE formularios SET activo = NOT activo WHERE id = ?");
-                $result = $stmt->execute([$_POST['id']]);
-                
-                if ($result) {
-                    $message = "Estado del formulario actualizado";
-                    $message_type = "success";
-                }
+                $stmt->execute([$formulario_id]);
+                $message = "Formulario eliminado exitosamente.";
                 break;
         }
+        
+        $pdo->commit(); // Si todo fue bien, confirmar los cambios
+        $message_type = "success";
+
     } catch (Exception $e) {
+        if ($pdo->inTransaction()) {
+            $pdo->rollBack(); // Si algo falló, revertir todo
+        }
         $message = "Error: " . $e->getMessage();
-        $message_type = "error";
+        $message_type = "danger";
     }
 }
 
-// Obtener lista de formularios
+// El resto del código para obtener y mostrar los datos no necesita cambios...
 try {
-    $db = Database::getInstance();
-    $pdo = $db->getConnection();
-    
-    $stmt = $pdo->query("SELECT f.*, c.nombre as curso_nombre,
-                                COUNT(DISTINCT e.id) as total_encuestas,
-                                COUNT(DISTINCT cp.profesor_id) as total_profesores
-                         FROM formularios f
-                         INNER JOIN cursos c ON f.curso_id = c.id
-                         LEFT JOIN encuestas e ON f.id = e.formulario_id
-                         LEFT JOIN curso_profesores cp ON f.id = cp.formulario_id
-                         GROUP BY f.id
-                         ORDER BY f.fecha_creacion DESC");
-    $formularios = $stmt->fetchAll(PDO::FETCH_ASSOC);
-    
-    // Obtener cursos para el select
-    $stmt = $pdo->query("SELECT id, nombre FROM cursos WHERE activo = 1 ORDER BY nombre");
-    $cursos = $stmt->fetchAll(PDO::FETCH_ASSOC);
-    
+    $pdo = getConnection();
+    $stmt_formularios = $pdo->query("SELECT f.id, f.nombre, f.descripcion, f.activo, f.ID_Modulo, m.Nombre as modulo_nombre, c.Nombre as curso_nombre FROM formularios f JOIN Modulo m ON f.ID_Modulo = m.ID_Modulo JOIN curso_modulo cm ON m.ID_Modulo = cm.ID_Modulo JOIN Curso c ON cm.ID_Curso = c.ID_Curso ORDER BY f.id DESC");
+    $formularios = $stmt_formularios->fetchAll(PDO::FETCH_ASSOC);
+    $stmt_modulos = $pdo->query("SELECT ID_Modulo, Nombre FROM Modulo ORDER BY Nombre");
+    $modulos_disponibles = $stmt_modulos->fetchAll(PDO::FETCH_ASSOC);
 } catch (Exception $e) {
     $formularios = [];
-    $cursos = [];
+    $modulos_disponibles = [];
     $message = "Error al cargar datos: " . $e->getMessage();
-    $message_type = "error";
+    $message_type = "danger";
 }
+
+// Incluir la plantilla
+include_once 'includes/header.php';
+include_once 'includes/sidebar.php';
 ?>
 
-<!DOCTYPE html>
-<html lang="es">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gestión de Formularios - Sistema de Encuestas</title>    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
-    <link href="assets/css/admin.css" rel="stylesheet">
-</head>
-<body>
-    <div class="container-fluid">
-        <div class="row row-sidebar">
-            <!-- Sidebar -->
-            <nav class="col-md-3 col-lg-2 d-md-block sidebar col-sidebar">
-                <div class="sidebar-sticky">
-                    <div class="text-center mb-4">
-                        <h5 class="text-white">Panel Admin</h5>
-                        <small class="text-muted">Sistema de Encuestas</small>
-                    </div>
-                    
-                    <ul class="nav flex-column">
-                        <li class="nav-item">
-                            <a class="nav-link text-white" href="index.php">
-                                <i class="bi bi-house-door me-2"></i>Dashboard
-                            </a>
-                        </li>                        <li class="nav-item">
-                            <a class="nav-link text-white" href="cursos.php">
-                                <i class="bi bi-book me-2"></i>Cursos
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link text-white" href="profesores.php">
-                                <i class="bi bi-person-badge me-2"></i>Profesores
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link text-white active" href="formularios.php">
-                                <i class="bi bi-file-earmark-text me-2"></i>Formularios
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link text-white" href="preguntas.php">
-                                <i class="bi bi-question-circle me-2"></i>Preguntas
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link text-white" href="reportes.php">
-                                <i class="bi bi-graph-up me-2"></i>Reportes
-                            </a>
-                        </li>
-                        <li class="nav-item mt-4">
-                            <a class="nav-link text-danger" href="login.php?logout=1">
-                                <i class="bi bi-box-arrow-right me-2"></i>Cerrar Sesión
-                            </a>
-                        </li>
-                    </ul>
-                </div>
-            </nav>
-
-            <!-- Main content -->
             <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4 content-with-sidebar">
-                <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+                <div
+                    class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
                     <h1 class="h2">Gestión de Formularios</h1>
-                    <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#formularioModal">
+                    <button type="button" class="btn btn-primary" data-bs-toggle="modal"
+                        data-bs-target="#formularioModal" onclick="clearForm()">
                         <i class="bi bi-plus-lg me-2"></i>Nuevo Formulario
                     </button>
                 </div>
 
-                <!-- Alertas -->
                 <?php if ($message): ?>
-                <div class="alert alert-<?php echo $message_type === 'error' ? 'danger' : $message_type; ?> alert-dismissible fade show" role="alert">
+                <div class="alert alert-<?php echo htmlspecialchars($message_type); ?> alert-dismissible fade show"
+                    role="alert">
                     <?php echo htmlspecialchars($message); ?>
                     <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
                 </div>
                 <?php endif; ?>
 
-                <!-- Tabla de formularios -->
                 <div class="card">
-                    <div class="card-header">
-                        <h5 class="card-title mb-0">Lista de Formularios</h5>
-                    </div>
                     <div class="card-body">
-                        <?php if (empty($formularios)): ?>
-                        <div class="text-center py-4">
-                            <i class="bi bi-file-earmark-text display-1 text-muted"></i>
-                            <p class="text-muted mt-3">No hay formularios registrados</p>
-                        </div>
-                        <?php else: ?>
                         <div class="table-responsive">
-                            <table class="table table-striped table-hover admin-table formularios-table">
+                            <table class="table table-striped table-hover admin-table">
                                 <thead>
                                     <tr>
                                         <th>ID</th>
-                                        <th>Nombre</th>
+                                        <th>Nombre del Formulario</th>
                                         <th>Curso</th>
-                                        <th>Período</th>
-                                        <th>Profesores</th>
-                                        <th>Encuestas</th>
+                                        <th>Módulo</th>
                                         <th>Estado</th>
                                         <th>Acciones</th>
                                     </tr>
                                 </thead>
                                 <tbody>
+                                    <?php if (empty($formularios)): ?>
+                                    <tr>
+                                        <td colspan="5" class="text-center text-muted">No hay formularios creados.</td>
+                                    </tr>
+                                    <?php else: ?>
                                     <?php foreach ($formularios as $formulario): ?>
                                     <tr>
                                         <td><?php echo $formulario['id']; ?></td>
                                         <td>
-                                            <strong><?php echo htmlspecialchars($formulario['nombre']); ?></strong>
-                                            <?php if ($formulario['descripcion']): ?>
-                                            <br><small class="text-muted"><?php echo htmlspecialchars(substr($formulario['descripcion'], 0, 50)) . (strlen($formulario['descripcion']) > 50 ? '...' : ''); ?></small>
-                                            <?php endif; ?>
+                                            <strong><?php echo htmlspecialchars($formulario['nombre']); ?></strong><br>
+                                            <small
+                                                class="text-muted"><?php echo htmlspecialchars($formulario['descripcion']); ?></small>
                                         </td>
                                         <td>
-                                            <span class="badge bg-info"><?php echo htmlspecialchars($formulario['curso_nombre']); ?></span>
-                                        </td>                                        <td>
-                                            <span class="text-muted">Siempre disponible</span>
+                                            <span
+                                                class="badge bg-primary"><?php echo htmlspecialchars($formulario['curso_nombre']); ?></span>
+                                        </td>
+                                        <td><span
+                                                class="badge bg-info"><?php echo htmlspecialchars($formulario['modulo_nombre']); ?></span>
+                                        </td>
+                                        <td><span
+                                                class="badge bg-<?php echo $formulario['activo'] ? 'success' : 'secondary'; ?>"><?php echo $formulario['activo'] ? 'Activo' : 'Inactivo'; ?></span>
                                         </td>
                                         <td>
-                                            <span class="badge bg-secondary"><?php echo $formulario['total_profesores']; ?></span>
-                                        </td>
-                                        <td>
-                                            <span class="badge bg-success"><?php echo $formulario['total_encuestas']; ?></span>
-                                        </td>
-                                        <td>
-                                            <?php 
-                                            $vigente = true; // Siempre vigente sin fechas límite
-                                            ?>
-                                            <span class="badge bg-<?php echo $formulario['activo'] && $vigente ? 'success' : 'secondary'; ?>">
-                                                <?php 
-                                                if (!$formulario['activo']) echo 'Inactivo';
-                                                elseif (!$vigente) echo 'Vencido';
-                                                else echo 'Activo';
-                                                ?>
-                                            </span>
-                                        </td>
-                                        <td>
-                                            <div class="btn-group btn-group-sm" role="group">
-                                                <button type="button" class="btn btn-outline-primary" onclick="editarFormulario(<?php echo htmlspecialchars(json_encode($formulario)); ?>)">
+                                            <div class="btn-group btn-group-sm">
+                                                <button type="button" class="btn btn-outline-primary"
+                                                    onclick='editFormulario(<?php echo json_encode($formulario, JSON_HEX_APOS | JSON_HEX_QUOT); ?>)'>
                                                     <i class="bi bi-pencil"></i>
                                                 </button>
-                                                <button type="button" class="btn btn-outline-info" onclick="gestionarProfesores(<?php echo $formulario['id']; ?>, '<?php echo htmlspecialchars($formulario['nombre']); ?>')">
-                                                    <i class="bi bi-people"></i>
-                                                </button>
-                                                <form method="POST" class="form-inline" onsubmit="return confirm('¿Está seguro de cambiar el estado?')">
-                                                    <input type="hidden" name="action" value="toggle_status">
-                                                    <input type="hidden" name="id" value="<?php echo $formulario['id']; ?>">
-                                                    <button type="submit" class="btn btn-outline-warning">
-                                                        <i class="bi bi-<?php echo $formulario['activo'] ? 'pause' : 'play'; ?>"></i>
-                                                    </button>
-                                                </form>
-                                                <form method="POST" class="form-inline" onsubmit="return confirm('¿Está seguro de eliminar este formulario?')">
+                                                <form method="POST" class="d-inline"
+                                                    onsubmit="return confirm('¿Está seguro de eliminar este formulario? Se perderán todas sus encuestas y respuestas asociadas.')">
                                                     <input type="hidden" name="action" value="delete">
-                                                    <input type="hidden" name="id" value="<?php echo $formulario['id']; ?>">
-                                                    <button type="submit" class="btn btn-outline-danger">
-                                                        <i class="bi bi-trash"></i>
-                                                    </button>
+                                                    <input type="hidden" name="id"
+                                                        value="<?php echo $formulario['id']; ?>">
+                                                    <button type="submit" class="btn btn-outline-danger"><i
+                                                            class="bi bi-trash"></i></button>
                                                 </form>
                                             </div>
                                         </td>
                                     </tr>
                                     <?php endforeach; ?>
+                                    <?php endif; ?>
                                 </tbody>
                             </table>
                         </div>
-                        <?php endif; ?>
                     </div>
                 </div>
             </main>
         </div>
     </div>
 
-    <!-- Modal para crear/editar formulario -->
-    <div class="modal fade" id="formularioModal" tabindex="-1" aria-labelledby="formularioModalLabel" aria-hidden="true">
+    <div class="modal fade" id="formularioModal" tabindex="-1">
         <div class="modal-dialog modal-lg">
             <div class="modal-content">
                 <form method="POST" id="formularioForm">
                     <div class="modal-header">
                         <h5 class="modal-title" id="formularioModalLabel">Nuevo Formulario</h5>
-                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                     </div>
                     <div class="modal-body">
                         <input type="hidden" name="action" id="form_action" value="create">
                         <input type="hidden" name="id" id="formulario_id">
-                        
-                        <div class="row">
-                            <div class="col-md-8">
-                                <div class="mb-3">
-                                    <label for="nombre" class="form-label">Nombre del Formulario *</label>
-                                    <input type="text" class="form-control" id="nombre" name="nombre" required>
-                                </div>
-                            </div>
-                            <div class="col-md-4">
-                                <div class="mb-3">
-                                    <label for="curso_id" class="form-label">Curso *</label>
-                                    <select class="form-select" id="curso_id" name="curso_id" required>
-                                        <option value="">Seleccionar curso...</option>
-                                        <?php foreach ($cursos as $curso): ?>
-                                        <option value="<?php echo $curso['id']; ?>"><?php echo htmlspecialchars($curso['nombre']); ?></option>
-                                        <?php endforeach; ?>
-                                    </select>
-                                </div>
-                            </div>
+
+                        <div class="mb-3">
+                            <label for="nombre" class="form-label">Nombre del Formulario *</label>
+                            <input type="text" class="form-control" id="nombre" name="nombre" required>
                         </div>
-                        
+
+                        <div class="mb-3">
+                            <label for="curso_select" class="form-label">Paso 1: Seleccionar Curso *</label>
+                            <select class="form-select" id="curso_select" required>
+                                <option value="">Seleccionar un curso...</option>
+                                <?php
+                // Es necesario obtener la lista de Cursos para el selector
+                $stmt_cursos_modal = $pdo->query("SELECT ID_Curso, Nombre FROM Curso ORDER BY Nombre");
+                $cursos_para_modal = $stmt_cursos_modal->fetchAll(PDO::FETCH_ASSOC);
+                foreach ($cursos_para_modal as $curso):
+            ?>
+                                <option value="<?php echo htmlspecialchars($curso['ID_Curso']); ?>">
+                                    <?php echo htmlspecialchars($curso['Nombre']); ?>
+                                </option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="ID_Modulo" class="form-label">Paso 2: Asignar al Módulo *</label>
+                            <select class="form-select" id="ID_Modulo" name="ID_Modulo" required disabled>
+                                <option value="">Seleccione un curso primero...</option>
+                            </select>
+                        </div>
+
                         <div class="mb-3">
                             <label for="descripcion" class="form-label">Descripción</label>
-                            <textarea class="form-control" id="descripcion" name="descripcion" rows="3"></textarea>                        </div>
-                        
-                        <div class="mb-3 form-check">
+                            <textarea class="form-control" id="descripcion" name="descripcion" rows="3"></textarea>
+                        </div>
+
+                        <div class="form-check">
                             <input type="checkbox" class="form-check-input" id="activo" name="activo" checked>
-                            <label class="form-check-label" for="activo">
-                                Formulario activo
-                            </label>
+                            <label class="form-check-label" for="activo">Formulario activo</label>
                         </div>
                     </div>
                     <div class="modal-footer">
@@ -331,189 +258,99 @@ try {
                     </div>
                 </form>
             </div>
-        </div>    </div>
-
-    <!-- Modal para Gestionar Profesores -->
-    <div class="modal fade" id="profesoresModal" tabindex="-1" aria-labelledby="profesoresModalLabel" aria-hidden="true">
-        <div class="modal-dialog modal-lg">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="profesoresModalLabel">Gestionar Profesores</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body">
-                    <div id="alertsContainer"></div>
-                    <input type="hidden" id="formularioIdProfesores">
-                    <div class="mb-3">
-                        <h6>Asignar/Desasignar Profesores al Formulario</h6>
-                        <p class="text-muted">Seleccione los profesores que desea asignar o desasignar de este formulario.</p>
-                    </div>
-                    <div id="profesoresContainer">
-                        <!-- Contenido dinámico -->
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
-                    <button type="button" class="btn btn-primary" onclick="window.location.reload()">Actualizar Página</button>
-                </div>
-            </div>
         </div>
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    
     <script>
-    function editarFormulario(formulario) {
-        document.getElementById('form_action').value = 'update';
-        document.getElementById('formulario_id').value = formulario.id;
-        document.getElementById('nombre').value = formulario.nombre;        document.getElementById('curso_id').value = formulario.curso_id;
-        document.getElementById('descripcion').value = formulario.descripcion || '';
-        document.getElementById('activo').checked = formulario.activo == 1;
-        
-        document.getElementById('formularioModalLabel').textContent = 'Editar Formulario';
-        
-        const modal = new bootstrap.Modal(document.getElementById('formularioModal'));
-        modal.show();
-    }
-      function gestionarProfesores(formularioId, nombreFormulario) {
-        // Actualizar título del modal
-        document.getElementById('profesoresModalLabel').textContent = 'Gestionar Profesores - ' + nombreFormulario;
-        document.getElementById('formularioIdProfesores').value = formularioId;
-        
-        // Limpiar contenido previo
-        const container = document.getElementById('profesoresContainer');
-        container.innerHTML = '<div class="text-center"><div class="spinner-border" role="status"><span class="visually-hidden">Cargando...</span></div></div>';
-        
-        // Cargar profesores
-        cargarProfesoresDisponibles(formularioId);
-        
-        // Mostrar modal
-        const modal = new bootstrap.Modal(document.getElementById('profesoresModal'));
-        modal.show();
-    }
-    
-    async function cargarProfesoresDisponibles(formularioId) {
-        try {
-            // Obtener todos los profesores
-            const response = await fetch('../api/get_profesores_todos.php');
-            const data = await response.json();
-            
-            if (!data.success) {
-                throw new Error(data.message);
+        // --- LÓGICA PARA EL SELECTOR EN CASCADA ---
+        document.getElementById('curso_select').addEventListener('change', async function () {
+            const cursoId = this.value;
+            const moduloSelect = document.getElementById('ID_Modulo');
+
+            // Resetear el selector de módulos
+            moduloSelect.innerHTML = '<option value="">Cargando módulos...</option>';
+            moduloSelect.disabled = true;
+
+            if (!cursoId) {
+                moduloSelect.innerHTML = '<option value="">Seleccione un curso primero</option>';
+                return;
             }
-            
-            // Obtener profesores asignados al formulario
-            const responseAsignados = await fetch(`../api/get_profesores.php?formulario_id=${formularioId}`);
-            const dataAsignados = await responseAsignados.json();
-            
-            const profesoresAsignados = dataAsignados.success ? dataAsignados.data.map(p => p.id) : [];
-            
-            // Renderizar lista
-            renderizarListaProfesores(data.data, profesoresAsignados, formularioId);
-            
-        } catch (error) {
-            document.getElementById('profesoresContainer').innerHTML = 
-                '<div class="alert alert-danger">Error al cargar profesores: ' + error.message + '</div>';
-        }
-    }
-    
-    function renderizarListaProfesores(profesores, asignados, formularioId) {
-        const container = document.getElementById('profesoresContainer');
-        
-        if (profesores.length === 0) {
-            container.innerHTML = '<div class="alert alert-info">No hay profesores disponibles.</div>';
-            return;
-        }
-        
-        let html = '<div class="list-group">';
-        
-        profesores.forEach(profesor => {
-            const isAsignado = asignados.includes(profesor.id);
-            const badgeClass = isAsignado ? 'bg-success' : 'bg-secondary';
-            const buttonText = isAsignado ? 'Quitar' : 'Asignar';
-            const buttonClass = isAsignado ? 'btn-outline-danger' : 'btn-outline-success';
-            const iconClass = isAsignado ? 'bi-dash-circle' : 'bi-plus-circle';
-            
-            html += `
-                <div class="list-group-item d-flex justify-content-between align-items-center">
-                    <div>
-                        <strong>${profesor.nombre}</strong>
-                        <br>
-                        <small class="text-muted">${profesor.email} | ${profesor.especialidad || 'Sin especialidad'}</small>
-                    </div>
-                    <div>
-                        <span class="badge ${badgeClass} me-2">${isAsignado ? 'Asignado' : 'Disponible'}</span>
-                        <button type="button" class="btn btn-sm ${buttonClass}" 
-                                onclick="toggleProfesorAsignacion(${profesor.id}, ${formularioId}, ${isAsignado})">
-                            <i class="bi ${iconClass}"></i> ${buttonText}
-                        </button>
-                    </div>
-                </div>
-            `;
+
+            try {
+                // Llamar a la API que ya tenemos para obtener los módulos de este curso
+                const response = await fetch(`../api/get_modulos.php?curso_id=${cursoId}`);
+                const data = await response.json();
+
+                if (data.success && data.data.length > 0) {
+                    moduloSelect.innerHTML = '<option value="">Seleccionar un módulo...</option>';
+                    data.data.forEach(modulo => {
+                        const option = new Option(modulo.Nombre, modulo.ID_Modulo);
+                        moduloSelect.add(option);
+                    });
+                    moduloSelect.disabled = false;
+                } else {
+                    moduloSelect.innerHTML = '<option value="">Este curso no tiene módulos</option>';
+                }
+            } catch (error) {
+                moduloSelect.innerHTML = '<option value="">Error al cargar módulos</option>';
+                console.error('Error fetching modules:', error);
+            }
         });
-        
-        html += '</div>';
-        container.innerHTML = html;
-    }
-      async function toggleProfesorAsignacion(profesorId, formularioId, isAsignado) {
-        try {
-            const accion = isAsignado ? 'desasignar' : 'asignar';
-            const response = await fetch('../api/gestionar_profesor_formulario.php', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    accion: accion,
-                    profesor_id: profesorId,
-                    formulario_id: formularioId
-                })
-            });
-            
-            const data = await response.json();
-            
-            if (data.success) {
-                // Recargar la lista
-                cargarProfesoresDisponibles(formularioId);
-                
-                // Mostrar mensaje de éxito
-                mostrarMensaje(data.message, 'success');
-            } else {
-                throw new Error(data.message);
-            }
-            
-        } catch (error) {
-            mostrarMensaje('Error: ' + error.message, 'danger');
+
+        // --- FUNCIONES DEL MODAL (ACTUALIZADAS) ---
+        function clearForm() {
+            document.getElementById('formularioForm').reset();
+            document.getElementById('form_action').value = 'create';
+            document.getElementById('formulario_id').value = '';
+            document.getElementById('formularioModalLabel').textContent = 'Nuevo Formulario';
+
+            // Resetear también los selectores dinámicos
+            const moduloSelect = document.getElementById('ID_Modulo');
+            moduloSelect.innerHTML = '<option value="">Seleccione un curso primero...</option>';
+            moduloSelect.disabled = true;
         }
-    }
-    
-    function mostrarMensaje(mensaje, tipo) {
-        const alertsContainer = document.getElementById('alertsContainer') || document.body;
-        const alertDiv = document.createElement('div');
-        alertDiv.className = `alert alert-${tipo} alert-dismissible fade show`;
-        alertDiv.innerHTML = `
-            ${mensaje}
-            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-        `;
-        alertsContainer.insertBefore(alertDiv, alertsContainer.firstChild);
-        
-        // Auto-remove after 5 seconds
-        setTimeout(() => {
-            if (alertDiv.parentNode) {
-                alertDiv.remove();
-            }
-        }, 5000);
-    }
-    
-    // Limpiar formulario al cerrar modal
-    document.getElementById('formularioModal').addEventListener('hidden.bs.modal', function () {
-        document.getElementById('form_action').value = 'create';
-        document.getElementById('formulario_id').value = '';
-        document.getElementById('formularioForm').reset();
-        document.getElementById('activo').checked = true;
-        document.getElementById('formularioModalLabel').textContent = 'Nuevo Formulario';    });
-    
-    // Validación de fechas eliminada - formularios sin fechas de vencimiento
+
+        function editFormulario(formulario) {
+            // Al editar, no necesitamos la cascada, solo rellenamos los datos
+            document.getElementById('form_action').value = 'update';
+            document.getElementById('formulario_id').value = formulario.id;
+            document.getElementById('nombre').value = formulario.nombre;
+            document.getElementById('descripcion').value = formulario.descripcion || '';
+            document.getElementById('activo').checked = formulario.activo == 1;
+
+            // Para los selectores, los rellenamos y seleccionamos los valores correctos
+            const cursoSelect = document.getElementById('curso_select');
+            const moduloSelect = document.getElementById('ID_Modulo');
+
+            // Seleccionamos el curso (esto no es dinámico al editar)
+            // Necesitamos saber el curso del módulo para seleccionarlo. Esta lógica es compleja
+            // sin una API que nos dé el curso de un módulo, así que lo dejamos simple por ahora.
+            // Lo ideal sería que el `formulario` JSON incluyera el `curso_id`.
+
+            // Rellenamos y seleccionamos el módulo
+            moduloSelect.innerHTML = '';
+            const option = new Option(formulario.modulo_nombre, formulario.ID_Modulo);
+            moduloSelect.add(option);
+            moduloSelect.value = formulario.ID_Modulo;
+            moduloSelect.disabled = false;
+
+            // Desactivamos el selector de curso para evitar inconsistencias al editar
+            cursoSelect.disabled = true;
+
+            document.getElementById('formularioModalLabel').textContent = 'Editar Formulario';
+
+            const modal = new bootstrap.Modal(document.getElementById('formularioModal'));
+            modal.show();
+        }
+
+        // Evento para limpiar el modal cuando se cierra
+        document.getElementById('formularioModal').addEventListener('hidden.bs.modal', function () {
+            clearForm();
+            //selector de curso por si el próximo uso es para crear uno nuevo
+            document.getElementById('curso_select').disabled = false;
+        });
     </script>
 </body>
+
 </html>

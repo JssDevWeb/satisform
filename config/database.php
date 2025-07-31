@@ -15,11 +15,11 @@ date_default_timezone_set('Europe/Madrid');
 
 // Configuración para entorno de desarrollo
 define('DB_HOST', 'localhost');
-define('DB_NAME', 'academia_encuestas');
+define('DB_NAME', 'centro_formacion');
 define('DB_USER', 'root');
 define('DB_PASS', '');  // Cambiar en producción por una contraseña fuerte
 define('DB_CHARSET', 'utf8mb4');
-define('DB_COLLATE', 'utf8mb4_spanish2_ci');
+define('DB_COLLATE', 'utf8mb4_0900_ai_ci');
 
 /**
  * Clase Database - Patrón Singleton para gestión de conexiones

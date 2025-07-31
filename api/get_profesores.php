@@ -1,113 +1,72 @@
 <?php
 /**
- * API: Obtener Profesores por Formulario
- * Versión simplificada
+ * API: Obtener Profesores y Formulario de un Módulo
+ * @file get_profesores_por_modulo.php (VERSIÓN CORREGIDA)
+ * @description Endpoint que devuelve los profesores Y el ID del formulario asociado a un módulo.
+ * @method GET
+ * @param string modulo_id (requerido)
  */
 
-// Headers de respuesta
 header('Content-Type: application/json; charset=utf-8');
 header('Access-Control-Allow-Origin: *');
-header('Access-Control-Allow-Methods: GET, OPTIONS');
-header('Access-Control-Allow-Headers: Content-Type, Authorization');
 
-// Manejar preflight OPTIONS request
-if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
-    http_response_code(200);
+require_once __DIR__ . '/../config/database.php';
+
+// Validar que se ha proporcionado el ID del módulo
+if (!isset($_GET['modulo_id']) || empty($_GET['modulo_id'])) {
+    http_response_code(400);
+    echo json_encode(['success' => false, 'message' => 'El parámetro modulo_id es requerido.']);
     exit();
 }
 
-// Solo permitir GET
-if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
-    http_response_code(405);
-    echo json_encode([
-        'success' => false,
-        'message' => 'Método no permitido. Solo se permite GET.',
-        'code' => 'METHOD_NOT_ALLOWED'
-    ]);
-    exit();
-}
-
-// Incluir configuración y funciones comunes
-require_once '../config/database.php';
-require_once 'common.php';
+$moduloId = htmlspecialchars(strip_tags($_GET['modulo_id']));
 
 try {
-    // Obtener IP del cliente
-    $ip = $_SERVER['REMOTE_ADDR'] ?? 'unknown';
-    
-    // Verificar rate limiting
-    if (!checkRateLimit($ip, 100)) {
-        sendJsonResponse(false, null, 'Límite de peticiones excedido. Intente más tarde.', 429);
-    }
-    
-    // Obtener parámetros requeridos
-    $formulario_id = isset($_GET['formulario_id']) ? sanitizeInput($_GET['formulario_id'], 'int') : null;
-    
-    if (!$formulario_id) {
-        sendJsonResponse(false, null, 'Parámetro formulario_id es requerido', 400);
-    }
-    
-    // Conectar a la base de datos
-    $db = Database::getInstance();
-    $pdo = $db->getConnection();
-    
-    // Verificar que el formulario existe y está activo
-    $sql_formulario = "
-        SELECT f.id, f.descripcion, f.activo 
-        FROM formularios f 
-        WHERE f.id = :formulario_id AND f.activo = 1
+    $pdo = getConnection();
+
+    // 1. Obtener los profesores de las Unidades Formativas de ese módulo
+    $sql_profesores = "
+        SELECT DISTINCT
+            p.ID_Profesor as id,
+            CONCAT(p.Nombre, ' ', p.Apellido1) as nombre,
+            p.Especialidad as especialidad
+        FROM Profesor p
+        INNER JOIN Unidad_Formativa uf ON p.ID_Profesor = uf.ID_Profesor
+        WHERE uf.ID_Modulo = :modulo_id
+        ORDER BY p.Apellido1 ASC, p.Nombre ASC
     ";
-    
-    $stmt = $pdo->prepare($sql_formulario);
-    $stmt->execute([':formulario_id' => $formulario_id]);
-    $formulario = $stmt->fetch(PDO::FETCH_ASSOC);
-    
+    $stmt_profesores = $pdo->prepare($sql_profesores);
+    $stmt_profesores->execute([':modulo_id' => $moduloId]);
+    $profesores = $stmt_profesores->fetchAll(PDO::FETCH_ASSOC);
+
+    // 2. Obtener el ID del formulario activo para ese módulo
+    $sql_formulario = "SELECT id FROM formularios WHERE ID_Modulo = :modulo_id AND activo = 1 LIMIT 1";
+    $stmt_formulario = $pdo->prepare($sql_formulario);
+    $stmt_formulario->execute([':modulo_id' => $moduloId]);
+    $formulario = $stmt_formulario->fetch(PDO::FETCH_ASSOC);
+
+    // Si no se encuentra un formulario, no se puede continuar
     if (!$formulario) {
-        sendJsonResponse(false, null, 'Formulario no encontrado o no está activo', 404);
+        http_response_code(200);
+        echo json_encode(['success' => false, 'message' => 'No se encontró un formulario de encuesta activo para este módulo.']);
+        exit();
     }
-    
-    // Obtener profesores asignados al formulario
-    $sql = "
-        SELECT 
-            p.id,
-            p.nombre,
-            p.especialidad,
-            p.email,
-            cp.orden,
-            cp.activo as asignacion_activa
-        FROM profesores p
-        INNER JOIN curso_profesores cp ON p.id = cp.profesor_id
-        WHERE cp.formulario_id = :formulario_id 
-        AND p.activo = 1 
-        AND cp.activo = 1
-        ORDER BY cp.orden ASC, p.nombre ASC
-    ";
-    
-    $stmt = $pdo->prepare($sql);
-    $stmt->execute([':formulario_id' => $formulario_id]);
-    $profesores = $stmt->fetchAll(PDO::FETCH_ASSOC);
-    
-    // Formatear datos
-    foreach ($profesores as &$profesor) {
-        $profesor['asignacion_activa'] = (bool)$profesor['asignacion_activa'];
-        $profesor['orden'] = (int)$profesor['orden'];
-    }
-    
-    // Log de la petición
-    logApiRequest('get_profesores', 'GET', $_GET, 200, $ip);
-    
-    // Enviar respuesta
-    sendJsonResponse(true, $profesores, 'Profesores obtenidos exitosamente', 200, [
-        'total' => count($profesores),
-        'formulario_id' => $formulario_id,
-        'formulario_descripcion' => $formulario['descripcion']
+
+    $formularioId = $formulario['id'];
+
+    // 3. Enviar la respuesta combinada que el JavaScript espera
+    http_response_code(200);
+    echo json_encode([
+        'success' => true,
+        'data' => [
+            'formulario_id' => $formularioId,
+            'profesores' => $profesores
+        ]
     ]);
-    
+
 } catch (Exception $e) {
-    // Log del error
-    error_log("Error en get_profesores.php: " . $e->getMessage());
-    
-    // Respuesta de error
-    sendJsonResponse(false, null, 'Error interno del servidor', 500);
+    error_log("Error en get_profesores_por_modulo.php: " . $e->getMessage());
+    http_response_code(500);
+    echo json_encode(['success' => false, 'message' => 'Error interno del servidor.']);
 }
 ?>

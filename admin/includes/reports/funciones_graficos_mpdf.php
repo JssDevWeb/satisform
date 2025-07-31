@@ -4,42 +4,50 @@
  * Solo genera gráficos SVG de torta compatibles con mPDF
  */
 
-/**
- * Convierte datos para el gráfico ultra simple y garantiza un orden específico
- */
+ 
 function convertirDatosParaGraficoUltraSimple($datos) {
     $total = array_sum($datos);
     $resultado = [];
     
-    // Define el orden específico para que coincida con la imagen de referencia
-    $orden_preferido = [
-        'Excelente (10)', 
-        'Bueno (7)', 
-        'Correcto (5)',
-        'Regular (3)',
-        'Deficiente (1)'
+    // Define las categorías y sus valores numéricos
+    $categorias_base = [
+        'Excelente' => ['sufijo' => '(10)', 'orden' => 1],
+        'Bueno' => ['sufijo' => '(7)', 'orden' => 2],
+        'Correcto' => ['sufijo' => '(5)', 'orden' => 3],
+        'Regular' => ['sufijo' => '(3)', 'orden' => 4],
+        'Deficiente' => ['sufijo' => '(1)', 'orden' => 5]
     ];
     
-    // Primero añadir los datos en el orden preferido
-    foreach ($orden_preferido as $categoria) {
-        if (isset($datos[$categoria]) && $datos[$categoria] > 0) {
-            $porcentaje = round(($datos[$categoria] / $total) * 100, 1);
-            $resultado[] = [
-                'categoria' => $categoria,
-                'valor' => $datos[$categoria],
-                'porcentaje' => $porcentaje
-            ];
+    // Primero mapear los datos a sus categorías base
+    $datos_mapeados = [];
+    foreach ($datos as $categoria => $valor) {
+        foreach ($categorias_base as $base => $info) {
+            if (strpos($categoria, $base) !== false) {
+                $datos_mapeados[] = [
+                    'categoria' => $categoria,
+                    'categoria_base' => $base,
+                    'valor' => $valor,
+                    'orden' => $info['orden'],
+                    'porcentaje' => round(($valor / $total) * 100, 1)
+                ];
+                break;
+            }
         }
     }
     
-    // Añadir cualquier categoría adicional que no esté en el orden preferido
-    foreach ($datos as $categoria => $valor) {
-        if (!in_array($categoria, $orden_preferido) && $valor > 0) {
-            $porcentaje = round(($valor / $total) * 100, 1);
+    // Ordenar por el orden definido
+    usort($datos_mapeados, function($a, $b) {
+        return $a['orden'] - $b['orden'];
+    });
+    
+    // Convertir al formato final
+    foreach ($datos_mapeados as $dato) {
+        if ($dato['valor'] > 0) {
             $resultado[] = [
-                'categoria' => $categoria,
-                'valor' => $valor,
-                'porcentaje' => $porcentaje
+                'categoria' => $dato['categoria'],
+                'categoria_base' => $dato['categoria_base'],
+                'valor' => $dato['valor'],
+                'porcentaje' => $dato['porcentaje']
             ];
         }
     }
@@ -60,13 +68,13 @@ function generarGraficoTortaUltraSimple($datos, $titulo = '') {
         return '<div class="empty-state">No hay datos para mostrar</div>';
     }
     
-    // Colores exactos según imagen de referencia con amarillo más claro
-    $colores = [
-        '#27ae60', // Verde - Excelente
-        '#22a6c7', // Azul turquesa - Bueno (modificado para coincidir con la imagen) 
-        '#ffc107', // Amarillo más claro - Correcto (cambiado para mejor distinción)
-        '#e67e22', // Naranja - Regular
-        '#e74c3c'  // Rojo - Deficiente
+    // Mapeo de categorías a colores específicos
+    $mapeo_colores = [
+        'Excelente' => '#28a745', // Verde
+        'Bueno' => '#17a2b8',     // Azul
+        'Correcto' => '#ffc107',  // Amarillo
+        'Regular' => '#fd7e14',    // Naranja
+        'Deficiente' => '#dc3545' // Rojo
     ];
     
     // Estructura simplificada - SOLO GRÁFICO
@@ -80,7 +88,7 @@ function generarGraficoTortaUltraSimple($datos, $titulo = '') {
     
     // Solo el gráfico SVG centrado
     $html .= '<div class="mpdf-chart-center">';
-    $html .= generarSVGTorta($datos, $colores);
+    $html .= generarSVGTorta($datos, $mapeo_colores);
     $html .= '</div>';
     
     $html .= '</div>'; // Cerrar mpdf-chart-container
@@ -96,13 +104,13 @@ function generarTablaAnalisisDistribucion($datos, $titulo = 'Análisis de Result
         return '<div class="empty-state">No hay datos para mostrar</div>';
     }
     
-    // Colores exactos según imagen de referencia con amarillo más claro
-    $colores = [
-        '#27ae60', // Verde - Excelente
-        '#22a6c7', // Azul turquesa - Bueno
-        '#ffc107', // Amarillo - Correcto 
-        '#e67e22', // Naranja - Regular
-        '#e74c3c'  // Rojo - Deficiente
+    // Mapeo de categorías a colores específicos
+    $mapeo_colores = [
+        'Excelente' => '#28a745', // Verde
+        'Bueno' => '#17a2b8',     // Azul
+        'Correcto' => '#ffc107',  // Amarillo
+        'Regular' => '#fd7e14',    // Naranja
+        'Deficiente' => '#dc3545' // Rojo
     ];
     
     // Mapeo de observaciones por categoría
@@ -115,7 +123,7 @@ function generarTablaAnalisisDistribucion($datos, $titulo = 'Análisis de Result
     ];
     
     $html = '<div class="mpdf-distribution-section">';
-    $html .= '<h3 class="mpdf-distribution-title">📊 ' . htmlspecialchars($titulo) . '</h3>';
+    $html .= '<h3 class="mpdf-distribution-title"> ' . htmlspecialchars($titulo) . '</h3>';
     
     // Tabla de análisis
     $html .= '<table class="mpdf-analysis-table" cellpadding="4" cellspacing="0">';
@@ -131,14 +139,17 @@ function generarTablaAnalisisDistribucion($datos, $titulo = 'Análisis de Result
     
     foreach ($datos as $index => $item) {
         if ($item['valor'] > 0) {
-            $color = $colores[$index % count($colores)];
-            
-            // Extraer el nombre base de la categoría (sin números entre paréntesis)
-            $categoria_base = preg_replace('/\s*\(\d+\)/', '', $item['categoria']);
+            // Usar la categoria_base que viene de convertirDatosParaGraficoUltraSimple
+            $categoria_base = isset($item['categoria_base']) ? $item['categoria_base'] : preg_replace('/\s*\(\d+\)/', '', $item['categoria']);
+            $color = isset($mapeo_colores[$categoria_base]) ? $mapeo_colores[$categoria_base] : $mapeo_colores['Deficiente'];
             $observacion = isset($observaciones[$categoria_base]) ? $observaciones[$categoria_base] : 'Sin observación';
             
+            // Remover los números entre paréntesis y agregar el círculo de color
+            $categoria_limpia = preg_replace('/\s*\(\d+\)/', '', $item['categoria']);
+            $circulo_color = '<span style="display: inline-block; width: 12px; height: 12px; border-radius: 50%; background-color: ' . $color . '; margin-right: 8px;"></span>';
+            
             $html .= '<tr>';
-            $html .= '<td class="mpdf-analysis-category">' . htmlspecialchars($item['categoria']) . '</td>';
+            $html .= '<td class="mpdf-analysis-category">' . $circulo_color . htmlspecialchars($categoria_limpia) . '</td>';
             $html .= '<td class="mpdf-analysis-quantity" style="color: ' . $color . '; font-weight: bold;">' . $item['valor'] . '</td>';
             $html .= '<td class="mpdf-analysis-percentage" style="color: ' . $color . '; font-weight: bold;">' . $item['porcentaje'] . '%</td>';
             $html .= '<td class="mpdf-analysis-observation">' . $observacion . '</td>';
@@ -156,7 +167,7 @@ function generarTablaAnalisisDistribucion($datos, $titulo = 'Análisis de Result
 /**
  * Genera el SVG de la torta con diseño corporativo elegante
  */
-function generarSVGTorta($datos, $colores) {
+function generarSVGTorta($datos, $mapeo_colores) {
     $total = array_sum(array_column($datos, 'valor'));
     $radio = 100;  // Aumentado de 80 a 100
     $centroX = 125; // Aumentado de 100 a 125
@@ -169,7 +180,7 @@ function generarSVGTorta($datos, $colores) {
     $svg .= '<circle cx="' . $centroX . '" cy="' . $centroY . '" r="' . ($radio + 3) . '" fill="#f8fafc" stroke="#cbd5e1" stroke-width="1" opacity="0.5"/>';
     
     $anguloInicial = -90;
-    
+
     foreach ($datos as $index => $item) {
         if ($item['valor'] > 0) {
             $porcentaje = $item['valor'] / $total;
@@ -182,7 +193,9 @@ function generarSVGTorta($datos, $colores) {
             $y2 = $centroY + $radio * sin(deg2rad($anguloInicial + $angulo));
             
             $largeArc = ($angulo > 180) ? 1 : 0;
-            $color = $colores[$index % count($colores)];
+            // Usar la categoria_base que viene de convertirDatosParaGraficoUltraSimple
+            $categoria_base = isset($item['categoria_base']) ? $item['categoria_base'] : preg_replace('/\s*\(\d+\)/', '', $item['categoria']);
+            $color = isset($mapeo_colores[$categoria_base]) ? $mapeo_colores[$categoria_base] : $mapeo_colores['Deficiente'];
             
             $path = "M $centroX,$centroY L $x1,$y1 A $radio,$radio 0 $largeArc,1 $x2,$y2 Z";
             

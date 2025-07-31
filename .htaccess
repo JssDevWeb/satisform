@@ -51,8 +51,8 @@ ErrorDocument 500 /formulario_final/error/500.html
 # REDIRECCIONES
 # ============================================
 
-# Redireccionar a index.html por defecto
-DirectoryIndex index.html index.php
+# Redireccionar a index.php por defecto
+DirectoryIndex index.php index.php
 
 # ============================================
 # CONFIGURACIÓN DE PHP BÁSICA

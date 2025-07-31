@@ -1,4 +1,8 @@
 <?php
+// Configurar log específico para debugging
+ini_set('log_errors', 1);
+ini_set('error_log', __DIR__ . '/debug_pdf.log');
+error_log("=== Inicio de nueva generación de PDF ===");
 /**
  * Procesador de PDF - Versión Final
  * Última limpieza: 02 de julio de 2025 - Eliminada función obsoleta obtenerComentariosProfesores() y variables no utilizadas
@@ -29,9 +33,9 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 // Obtener parámetros
 $curso_id = $_POST['curso_id'] ?? '';
 $fecha = $_POST['fecha'] ?? '';
-
+$modulos = isset($_POST['modulos']) && is_array($_POST['modulos']) ? $_POST['modulos'] : [];
 // Validar parámetros
-if (empty($curso_id) || empty($fecha)) {
+if (empty($curso_id) || empty($fecha) || empty($modulos)) {
     mostrarError('Parámetros incompletos. Se requiere curso_id y fecha.');
 }
 
@@ -55,7 +59,7 @@ try {
     
     // Obtener datos del reporte
     $db = Database::getInstance()->getConnection();
-    $datosReporte = obtenerDatosReporte($db, $curso_id, $fecha);
+    $datosReporte = obtenerDatosReporte($db, $curso_id, $fecha, $modulos);
     
     // Crear mPDF con configuración más robusta
     // Directorio de fuentes personalizadas (si existiera)
@@ -122,30 +126,39 @@ try {
 /**
  * Obtiene los datos necesarios para el reporte
  */
-function obtenerDatosReporte($db, $curso_id, $fecha) {
-    // Obtener información del curso
-    $stmt = $db->prepare("SELECT id, nombre, codigo FROM cursos WHERE id = :curso_id");
+function obtenerDatosReporte($db, $curso_id, $fecha, $modulos) { // <-- Se añade $modulos
+    // 1. Obtener información del curso (se mantiene igual)
+    $stmt = $db->prepare("SELECT ID_Curso as id, Nombre as nombre, '' as codigo FROM Curso WHERE ID_Curso = :curso_id");
     $stmt->execute([':curso_id' => $curso_id]);
     $curso = $stmt->fetch(PDO::FETCH_ASSOC);
     
     if (!$curso) {
-        throw new Exception("No se encontró el curso con ID: " . $curso_id);
+        throw new Exception("No se encontró el curso con ID: " . htmlspecialchars($curso_id));
     }
 
-    // Obtener estadísticas básicas de encuestas
+    // 2. Obtener estadísticas básicas (AHORA USA EL FILTRO DE MÓDULOS)
+    $placeholders = implode(',', array_fill(0, count($modulos), '?'));
+    $params = array_merge($modulos, [$fecha]);
+
     $stmt = $db->prepare("
-        SELECT COUNT(*) as total_encuestas,
-               COUNT(DISTINCT formulario_id) as total_formularios
-        FROM encuestas 
-        WHERE curso_id = :curso_id AND DATE(fecha_envio) = :fecha
+        SELECT COUNT(DISTINCT e.id) as total_encuestas,
+               COUNT(DISTINCT e.formulario_id) as total_formularios
+        FROM encuestas e
+        WHERE e.ID_Modulo IN ($placeholders) AND DATE(e.fecha_envio) = ?
     ");
-    $stmt->execute([':curso_id' => $curso_id, ':fecha' => $fecha]);
-    $estadisticas = $stmt->fetch(PDO::FETCH_ASSOC);    // Obtener datos del curso para el bloque principal
-    $datos_curso = obtenerDatosCurso($db, $curso_id, $fecha);
+    $stmt->execute($params);
+    $estadisticas = $stmt->fetch(PDO::FETCH_ASSOC);
     
-    // Obtener datos de profesores
-    $datos_profesores = obtenerDatosProfesores($db, $curso_id, $fecha);
+    // 3. Llamar a las otras funciones pasándoles el array de módulos
+    $datos_curso = obtenerDatosCurso($db, $curso_id, $fecha, $modulos);
+    $datos_profesores = obtenerDatosProfesores($db, $curso_id, $fecha, $modulos);
     
+    // 4. Devolver los datos
+    // Obtener los nombres de los módulos
+    $stmt_modulos = $db->prepare("SELECT Nombre FROM Modulo WHERE ID_Modulo IN ($placeholders)");
+    $stmt_modulos->execute($modulos);
+    $nombres_modulos = $stmt_modulos->fetchAll(PDO::FETCH_COLUMN);
+
     return [
         'curso_id' => $curso['id'],
         'curso_nombre' => $curso['nombre'],
@@ -154,18 +167,29 @@ function obtenerDatosReporte($db, $curso_id, $fecha) {
         'total_formularios' => $estadisticas['total_formularios'] ?? 0,
         'fecha_reporte' => $fecha,
         'datos_curso' => $datos_curso,
-        'datos_profesores' => $datos_profesores
+        'datos_profesores' => $datos_profesores,
+        'modulos' => $nombres_modulos // Añadimos los nombres de los módulos
     ];
 }
 
 /**
  * Obtiene datos específicos del curso para el reporte
  */
-function obtenerDatosCurso($db, $curso_id, $fecha) {
+
+function obtenerDatosCurso($db, $curso_id, $fecha, $modulos) { // <-- 1. Aceptamos $modulos
     $datos = [];
+
+    // --- 2. La subconsulta ahora usa los módulos seleccionados ---
+    $placeholders = implode(',', array_fill(0, count($modulos), '?'));
+    $params = array_merge($modulos, [$fecha]);
     
-    // 1. Obtener estadísticas detalladas del curso
-    $stmt = $db->prepare("
+    $subquery_encuestas_ids = "
+        SELECT e.id FROM encuestas e
+        WHERE e.ID_Modulo IN ($placeholders) AND DATE(e.fecha_envio) = ?
+    ";
+
+    // 1. Obtener estadísticas detalladas del curso (el resto de las consultas ya usan la subquery, así que no necesitan cambios)
+    $stmt_stats = $db->prepare("
         SELECT 
             COUNT(DISTINCT e.id) as total_encuestas,
             COUNT(DISTINCT e.formulario_id) as total_formularios,
@@ -174,13 +198,11 @@ function obtenerDatosCurso($db, $curso_id, $fecha) {
         FROM encuestas e
         LEFT JOIN respuestas r ON e.id = r.encuesta_id
         LEFT JOIN preguntas p ON r.pregunta_id = p.id
-        WHERE e.curso_id = :curso_id 
-        AND DATE(e.fecha_envio) = :fecha
-        AND p.tipo = 'escala'
-        AND p.seccion = 'curso'
+        WHERE e.id IN ($subquery_encuestas_ids) AND p.tipo = 'escala' AND p.seccion = 'curso'
     ");
-    $stmt->execute([':curso_id' => $curso_id, ':fecha' => $fecha]);
-    $estadisticas = $stmt->fetch(PDO::FETCH_ASSOC);
+    // Ahora ejecutamos con los nuevos parámetros ($modulos y $fecha)
+    $stmt_stats->execute($params);
+    $estadisticas = $stmt_stats->fetch(PDO::FETCH_ASSOC);
     
     $datos['estadisticas'] = [
         'total_encuestas' => $estadisticas['total_encuestas'] ?? 0,
@@ -189,156 +211,92 @@ function obtenerDatosCurso($db, $curso_id, $fecha) {
         'promedio_general' => round($estadisticas['promedio_general'] ?? 0, 2)
     ];
     
-    // Obtener número de preguntas de curso y calcular puntuación máxima
-    $stmt = $db->prepare("SELECT COUNT(*) as num_preguntas FROM preguntas WHERE seccion = 'curso' AND tipo = 'escala' AND activa = 1");
-    $stmt->execute();
-    $num_preguntas_curso = $stmt->fetch()['num_preguntas'];
+    $stmt_num_preguntas = $db->prepare("SELECT COUNT(*) as num_preguntas FROM preguntas WHERE seccion = 'curso' AND tipo = 'escala' AND activa = 1");
+    $stmt_num_preguntas->execute();
+    $num_preguntas_curso = $stmt_num_preguntas->fetch()['num_preguntas'];
     
     $datos['estadisticas']['num_preguntas'] = $num_preguntas_curso;
-    $datos['estadisticas']['max_puntuacion'] = $num_preguntas_curso * $datos['estadisticas']['total_encuestas'] * 10;
+    $datos['estadisticas']['max_puntuacion'] = $num_preguntas_curso * ($datos['estadisticas']['total_encuestas'] ?? 0) * 10;
     
-    // Calcular puntuación real del curso
-    $stmt = $db->prepare("
+    $stmt_puntuacion = $db->prepare("
         SELECT SUM(CASE WHEN r.valor_int IN (1, 3, 5, 7, 10) THEN r.valor_int ELSE 0 END) as puntuacion_real
-        FROM respuestas r 
-        JOIN preguntas p ON r.pregunta_id = p.id 
-        JOIN encuestas e ON r.encuesta_id = e.id 
-        WHERE e.curso_id = :curso_id 
-        AND DATE(e.fecha_envio) = :fecha 
-        AND p.seccion = 'curso' 
-        AND p.tipo = 'escala'
+        FROM respuestas r JOIN preguntas p ON r.pregunta_id = p.id 
+        WHERE r.encuesta_id IN ($subquery_encuestas_ids) AND p.seccion = 'curso' AND p.tipo = 'escala'
     ");
-    $stmt->execute([':curso_id' => $curso_id, ':fecha' => $fecha]);
-    $puntuacion_real = $stmt->fetch()['puntuacion_real'] ?? 0;
-    $datos['estadisticas']['puntuacion_real'] = $puntuacion_real;
+    $stmt_puntuacion->execute($params);
+    $datos['estadisticas']['puntuacion_real'] = $stmt_puntuacion->fetch()['puntuacion_real'] ?? 0;
     
-    // 2. Obtener distribución de calificaciones para el gráfico (preguntas de curso)
-    // Contar RESPUESTAS por categoría exacta según el sistema de puntuación
-    $stmt = $db->prepare("
+    // 2. Obtener distribución de calificaciones para el gráfico
+    $stmt_distribucion = $db->prepare("
         SELECT 
             CASE 
-                WHEN r.valor_int = 10 THEN 'excelente'
-                WHEN r.valor_int = 7 THEN 'bueno'
-                WHEN r.valor_int = 5 THEN 'correcto'
-                WHEN r.valor_int = 3 THEN 'regular'
-                WHEN r.valor_int = 1 THEN 'deficiente'
+                WHEN r.valor_int >= 9 THEN 'excelente' WHEN r.valor_int >= 7 THEN 'bueno'
+                WHEN r.valor_int >= 5 THEN 'correcto' WHEN r.valor_int >= 3 THEN 'regular'
+                ELSE 'deficiente'
             END as categoria,
             COUNT(*) as cantidad_respuestas
-        FROM encuestas e
-        JOIN respuestas r ON e.id = r.encuesta_id
-        JOIN preguntas p ON r.pregunta_id = p.id
-        WHERE e.curso_id = :curso_id 
-        AND DATE(e.fecha_envio) = :fecha
-        AND p.tipo = 'escala'
-        AND r.valor_int IN (1, 3, 5, 7, 10)
-        AND p.seccion = 'curso'
-        GROUP BY categoria
-        ORDER BY r.valor_int DESC
+        FROM respuestas r JOIN preguntas p ON r.pregunta_id = p.id
+        WHERE r.encuesta_id IN ($subquery_encuestas_ids) AND p.tipo = 'escala' AND p.seccion = 'curso'
+        GROUP BY categoria ORDER BY FIELD(categoria, 'excelente', 'bueno', 'correcto', 'regular', 'deficiente')
     ");
-    $stmt->execute([':curso_id' => $curso_id, ':fecha' => $fecha]);
-    $distribucion = $stmt->fetchAll(PDO::FETCH_ASSOC);
-    
-    // Inicializar categorías con cantidad de respuestas
-    $datos['grafico'] = [
-        'excelente' => 0, // 10 puntos
-        'bueno' => 0,     // 7 puntos
-        'correcto' => 0,   // 5 puntos
-        'regular' => 0,      // 3 puntos
-        'deficiente' => 0   // 1 punto
-    ];
-    
-    // Asignar cantidad de respuestas por categoría
-    foreach ($distribucion as $row) {
-        if ($row['categoria']) {
-            $datos['grafico'][$row['categoria']] = (int)$row['cantidad_respuestas'];
-        }
-    }
+    $stmt_distribucion->execute($params);
+    $distribucion = $stmt_distribucion->fetchAll(PDO::FETCH_KEY_PAIR);
+    $datos['grafico'] = array_merge(['excelente' => 0, 'bueno' => 0, 'correcto' => 0, 'regular' => 0, 'deficiente' => 0], $distribucion);
 
-    // 3. Obtener preguntas críticas (>40% respuestas bajas: valores 1 y 3) del curso
-    $stmt = $db->prepare("
-        SELECT 
-            p.id,
-            p.texto,
-            COUNT(r.id) as total_respuestas,
-            SUM(CASE WHEN r.valor_int IN (1, 3) THEN 1 ELSE 0 END) as respuestas_bajas,
-            ROUND((SUM(CASE WHEN r.valor_int IN (1, 3) THEN 1 ELSE 0 END) * 100.0 / COUNT(r.id)), 2) as porcentaje_bajas
-        FROM preguntas p
-        JOIN respuestas r ON p.id = r.pregunta_id
-        JOIN encuestas e ON r.encuesta_id = e.id
-        WHERE e.curso_id = :curso_id 
-        AND DATE(e.fecha_envio) = :fecha
-        AND p.tipo = 'escala'
-        AND p.seccion = 'curso'
-        AND r.valor_int IN (1, 3, 5, 7, 10)
-        GROUP BY p.id, p.texto
-        HAVING porcentaje_bajas > 40
-        ORDER BY porcentaje_bajas DESC
+    // 3. Obtener preguntas críticas del curso
+    $stmt_criticas = $db->prepare("
+        SELECT p.id, p.texto, COUNT(r.id) as total_respuestas,
+               SUM(CASE WHEN r.valor_int IN (1, 3) THEN 1 ELSE 0 END) as respuestas_bajas,
+               ROUND((SUM(CASE WHEN r.valor_int IN (1, 3) THEN 1 ELSE 0 END) * 100.0 / COUNT(r.id)), 1) as porcentaje_bajas
+        FROM preguntas p JOIN respuestas r ON p.id = r.pregunta_id
+        WHERE r.encuesta_id IN ($subquery_encuestas_ids) AND p.tipo = 'escala' AND p.seccion = 'curso'
+        GROUP BY p.id, p.texto HAVING porcentaje_bajas > 40 ORDER BY porcentaje_bajas DESC
     ");
-    $stmt->execute([':curso_id' => $curso_id, ':fecha' => $fecha]);
-    $datos['preguntas_criticas'] = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    $stmt_criticas->execute($params);
+    $datos['preguntas_criticas'] = $stmt_criticas->fetchAll(PDO::FETCH_ASSOC);
 
-    // 4. Obtener comentarios asociados a preguntas críticas del curso
-    if (!empty($datos['preguntas_criticas'])) {
-        $ids_preguntas_criticas = array_column($datos['preguntas_criticas'], 'id');
-        $placeholders = str_repeat('?,', count($ids_preguntas_criticas) - 1) . '?';
-        
-        $stmt = $db->prepare("
-            SELECT 
-                p.texto as pregunta,
-                r.valor_text as comentario,
-                e.fecha_envio
-            FROM respuestas r
-            JOIN preguntas p ON r.pregunta_id = p.id
-            JOIN encuestas e ON r.encuesta_id = e.id
-            WHERE r.pregunta_id IN ($placeholders)
-            AND e.curso_id = ?
-            AND DATE(e.fecha_envio) = ?
-            AND r.valor_text IS NOT NULL 
-            AND r.valor_text != ''
-            AND p.seccion = 'curso'
-            ORDER BY p.texto, e.fecha_envio DESC
-        ");
-        
-        $params = array_merge($ids_preguntas_criticas, [$curso_id, $fecha]);
-        $stmt->execute($params);
-        $datos['comentarios_criticos'] = $stmt->fetchAll(PDO::FETCH_ASSOC);
-    } else {
-        $datos['comentarios_criticos'] = [];
-    }
-
-    // Obtener comentarios cualitativos del curso
-    $datos['comentarios_cualitativos'] = obtenerComentariosCurso($db, $curso_id, $fecha);
+    // 4. Obtener comentarios cualitativos del curso
+    $datos['comentarios_cualitativos'] = obtenerComentariosCurso($db, $curso_id, $fecha, $modulos); // <-- 3. Le pasamos los módulos
 
     return $datos;
 }
-
 /**
  * Obtiene comentarios cualitativos del curso
  */
-function obtenerComentariosCurso($db, $curso_id, $fecha) {
+
+function obtenerComentariosCurso($db, $curso_id, $fecha, $modulos) { // <-- Se añade $modulos
     try {
+        // --- Subconsulta corregida para usar los módulos seleccionados ---
+        $placeholders = implode(',', array_fill(0, count($modulos), '?'));
+        $params = array_merge($modulos, [$fecha]);
+        
+        $subquery_encuestas_ids = "
+            SELECT e.id FROM encuestas e
+            WHERE e.ID_Modulo IN ($placeholders) AND DATE(e.fecha_envio) = ?
+        ";
+
+        // La consulta principal ya no necesita la subconsulta, puede usar la cláusula IN directamente
         $stmt = $db->prepare("
             SELECT 
                 r.valor_text as comentario,
                 pr.texto as pregunta_texto,
-                c.nombre as curso_nombre,
                 e.fecha_envio
-            FROM encuestas e
-            JOIN respuestas r ON e.id = r.encuesta_id
+            FROM respuestas r
             JOIN preguntas pr ON r.pregunta_id = pr.id
-            JOIN cursos c ON e.curso_id = c.id
-            WHERE pr.tipo = 'texto' 
+            JOIN encuestas e ON r.encuesta_id = e.id
+            WHERE r.encuesta_id IN ($subquery_encuestas_ids)
+                AND pr.tipo = 'texto' 
                 AND pr.seccion = 'curso'
-                AND e.curso_id = :curso_id
-                AND DATE(e.fecha_envio) = :fecha
                 AND r.valor_text IS NOT NULL 
                 AND r.valor_text != '' 
-                AND CHAR_LENGTH(TRIM(r.valor_text)) > 5
             ORDER BY e.fecha_envio DESC
             LIMIT 10
         ");
-        $stmt->execute([':curso_id' => $curso_id, ':fecha' => $fecha]);
+        
+        // Ejecutamos con los parámetros correctos ($modulos y $fecha)
+        $stmt->execute($params);
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
+
     } catch (Exception $e) {
         error_log("Error obteniendo comentarios del curso: " . $e->getMessage());
         return [];
@@ -348,214 +306,117 @@ function obtenerComentariosCurso($db, $curso_id, $fecha) {
 /**
  * Obtiene datos de profesores incluyendo comentarios cualitativos
  */
-function obtenerDatosProfesores($db, $curso_id, $fecha) {
+// Reemplaza esta función completa en procesar_pdf.php
+function obtenerDatosProfesores($db, $curso_id, $fecha, $modulos) {
     try {
-        // Obtener lista de profesores evaluados
-        $stmt = $db->prepare("
-            SELECT DISTINCT 
-                p.id,
-                p.nombre,
-                p.especialidad
-            FROM profesores p
-            JOIN respuestas r ON p.id = r.profesor_id
-            JOIN encuestas e ON r.encuesta_id = e.id
-            JOIN preguntas pr ON r.pregunta_id = pr.id
-            WHERE e.curso_id = :curso_id 
-            AND DATE(e.fecha_envio) = :fecha
-            AND pr.tipo = 'escala'
-            AND pr.seccion = 'profesor'
-            GROUP BY p.id, p.nombre, p.especialidad
-            ORDER BY p.nombre
+        // Construir marcadores de posición nombrados para los módulos
+        $modulo_placeholders = [];
+        $params = [];
+        foreach ($modulos as $i => $modulo_id) {
+            $key = ":mod" . $i;
+            $modulo_placeholders[] = $key;
+            $params[$key] = $modulo_id;
+        }
+        $placeholders_str = implode(',', $modulo_placeholders);
+
+        // Añadir la fecha como parámetro nombrado
+        $params[':fecha'] = $fecha;
+
+        // La subconsulta ahora usa solo marcadores nombrados
+        $subquery_encuestas_ids = "
+            SELECT e.id FROM encuestas e
+            WHERE e.ID_Modulo IN ($placeholders_str) AND DATE(e.fecha_envio) = :fecha
+        ";
+
+        // 1. Obtener la lista de profesores únicos
+        $stmt_profesores = $db->prepare("
+            SELECT DISTINCT
+                p.ID_Profesor as id,
+                CONCAT(p.Nombre, ' ', p.Apellido1) as nombre,
+                p.Especialidad as especialidad
+            FROM Profesor p
+            JOIN respuestas r ON p.ID_Profesor = r.profesor_id
+            WHERE r.encuesta_id IN ($subquery_encuestas_ids)
+            ORDER BY p.Apellido1, p.Nombre
         ");
-        $stmt->execute([':curso_id' => $curso_id, ':fecha' => $fecha]);
-        $profesores_base = $stmt->fetchAll(PDO::FETCH_ASSOC);
-        
+        $stmt_profesores->execute($params);
+        $profesores_base = $stmt_profesores->fetchAll(PDO::FETCH_ASSOC);
+
         $profesores_completos = [];
         
-        // Para cada profesor, obtener datos completos
+        // 2. Para cada profesor, obtener sus datos detallados
         foreach ($profesores_base as $profesor_base) {
             $profesor_id = $profesor_base['id'];
+            $profesor = ['info' => $profesor_base];
             
-            // Información básica del profesor
-            $profesor = [
-                'info' => [
-                    'id' => $profesor_base['id'],
-                    'nombre' => $profesor_base['nombre'],
-                    'especialidad' => $profesor_base['especialidad'] ?? ''
-                ]
-            ];
-            
-            // Estadísticas del profesor
-            $stmt = $db->prepare("
-                SELECT 
-                    COUNT(DISTINCT e.id) as total_encuestas,
-                    COUNT(*) as total_respuestas,
-                    AVG(CASE WHEN r.valor_int IN (1, 3, 5, 7, 10) THEN r.valor_int END) as promedio_profesor,
-                    SUM(CASE WHEN r.valor_int IN (1, 3, 5, 7, 10) THEN r.valor_int ELSE 0 END) as puntuacion_real
-                FROM respuestas r
-                JOIN encuestas e ON r.encuesta_id = e.id
-                JOIN preguntas pr ON r.pregunta_id = pr.id
-                WHERE e.curso_id = :curso_id 
-                AND DATE(e.fecha_envio) = :fecha
-                AND r.profesor_id = :profesor_id
-                AND pr.tipo = 'escala'
-                AND pr.seccion = 'profesor'
+            // Combinar el array base con el ID del profesor para las consultas
+            $params_profesor = array_merge($params, [':profesor_id' => $profesor_id]);
+
+            // 2a. Estadísticas del profesor
+            $stmt_stats = $db->prepare("
+                SELECT COUNT(DISTINCT r.encuesta_id) as total_encuestas, COUNT(r.id) as total_respuestas,
+                       AVG(r.valor_int) as promedio_profesor, SUM(r.valor_int) as puntuacion_real
+                FROM respuestas r JOIN preguntas p ON r.pregunta_id = p.id
+                WHERE r.encuesta_id IN ($subquery_encuestas_ids)
+                AND r.profesor_id = :profesor_id AND p.tipo = 'escala' AND p.seccion = 'profesor'
             ");
-            $stmt->execute([
-                ':curso_id' => $curso_id, 
-                ':fecha' => $fecha,
-                ':profesor_id' => $profesor_id
-            ]);
-            $stats = $stmt->fetch(PDO::FETCH_ASSOC);
-            
-            // Obtener número de preguntas de profesor
-            $stmt = $db->prepare("SELECT COUNT(*) as num_preguntas FROM preguntas WHERE seccion = 'profesor' AND tipo = 'escala' AND activa = 1");
-            $stmt->execute();
-            $num_preguntas = $stmt->fetch()['num_preguntas'];
+            $stmt_stats->execute($params_profesor);
+            $stats = $stmt_stats->fetch(PDO::FETCH_ASSOC);
+
+            $num_preguntas_profesor = $db->query("SELECT COUNT(*) FROM preguntas WHERE seccion = 'profesor' AND tipo = 'escala' AND activa = 1")->fetchColumn();
             
             $profesor['estadisticas'] = [
                 'total_encuestas' => $stats['total_encuestas'] ?? 0,
                 'total_respuestas' => $stats['total_respuestas'] ?? 0,
                 'promedio_profesor' => round($stats['promedio_profesor'] ?? 0, 2),
                 'puntuacion_real' => $stats['puntuacion_real'] ?? 0,
-                'num_preguntas' => $num_preguntas,
-                'max_puntuacion' => $num_preguntas * ($stats['total_encuestas'] ?? 0) * 10
+                'num_preguntas' => $num_preguntas_profesor,
+                'max_puntuacion' => $num_preguntas_profesor * ($stats['total_encuestas'] ?? 0) * 10
             ];
             
-            // Distribución de calificaciones del profesor
-            $stmt = $db->prepare("
-                SELECT 
-                    CASE 
-                        WHEN r.valor_int = 10 THEN 'excelente'
-                        WHEN r.valor_int = 7 THEN 'bueno'
-                        WHEN r.valor_int = 5 THEN 'correcto'
-                        WHEN r.valor_int = 3 THEN 'regular'
-                        WHEN r.valor_int = 1 THEN 'deficiente'
-                    END as categoria,
-                    COUNT(*) as cantidad_respuestas
-                FROM encuestas e
-                JOIN respuestas r ON e.id = r.encuesta_id
-                JOIN preguntas p ON r.pregunta_id = p.id
-                WHERE e.curso_id = :curso_id 
-                AND DATE(e.fecha_envio) = :fecha
-                AND r.profesor_id = :profesor_id
-                AND p.tipo = 'escala'
-                AND r.valor_int IN (1, 3, 5, 7, 10)
-                AND p.seccion = 'profesor'
-                GROUP BY categoria
-                ORDER BY r.valor_int DESC
+            // 2b. Distribución para el gráfico
+            $stmt_distribucion = $db->prepare("
+                SELECT CASE WHEN r.valor_int >= 9 THEN 'excelente' WHEN r.valor_int >= 7 THEN 'bueno' WHEN r.valor_int >= 5 THEN 'correcto' WHEN r.valor_int >= 3 THEN 'regular' ELSE 'deficiente' END as categoria,
+                       COUNT(*) as cantidad_respuestas
+                FROM respuestas r JOIN preguntas p ON r.pregunta_id = p.id
+                WHERE r.encuesta_id IN ($subquery_encuestas_ids) AND r.profesor_id = :profesor_id AND p.tipo = 'escala' AND p.seccion = 'profesor'
+                GROUP BY categoria ORDER BY FIELD(categoria, 'excelente', 'bueno', 'correcto', 'regular', 'deficiente')
             ");
-            $stmt->execute([
-                ':curso_id' => $curso_id, 
-                ':fecha' => $fecha,
-                ':profesor_id' => $profesor_id
-            ]);
-            $distribucion = $stmt->fetchAll(PDO::FETCH_ASSOC);
-            
-            // Inicializar gráfico del profesor
-            $profesor['grafico'] = [
-                'excelente' => 0,
-                'bueno' => 0,
-                'correcto' => 0,
-                'regular' => 0,
-                'deficiente' => 0
-            ];
-            
-            // Asignar distribución
-            foreach ($distribucion as $row) {
-                if ($row['categoria']) {
-                    $profesor['grafico'][$row['categoria']] = (int)$row['cantidad_respuestas'];
-                }
-            }
-            
-            // Obtener preguntas críticas del profesor
-            $stmt = $db->prepare("
-                SELECT 
-                    p.id,
-                    p.texto,
-                    COUNT(r.id) as total_respuestas,
-                    SUM(CASE WHEN r.valor_int IN (1, 3) THEN 1 ELSE 0 END) as respuestas_bajas,
-                    ROUND((SUM(CASE WHEN r.valor_int IN (1, 3) THEN 1 ELSE 0 END) * 100.0 / COUNT(r.id)), 2) as porcentaje_bajas
-                FROM preguntas p
-                JOIN respuestas r ON p.id = r.pregunta_id
-                JOIN encuestas e ON r.encuesta_id = e.id
-                WHERE e.curso_id = :curso_id 
-                AND DATE(e.fecha_envio) = :fecha
-                AND r.profesor_id = :profesor_id
-                AND p.tipo = 'escala'
-                AND p.seccion = 'profesor'
-                AND r.valor_int IN (1, 3, 5, 7, 10)
+            $stmt_distribucion->execute($params_profesor);
+            $distribucion = $stmt_distribucion->fetchAll(PDO::FETCH_KEY_PAIR);
+            $profesor['grafico'] = array_merge(['excelente' => 0, 'bueno' => 0, 'correcto' => 0, 'regular' => 0, 'deficiente' => 0], $distribucion);
+
+            // --- AÑADIDO: 2c. Obtener preguntas críticas del profesor ---
+            $stmt_criticas_prof = $db->prepare("
+                SELECT p.id, p.texto, COUNT(r.id) as total_respuestas,
+                       SUM(CASE WHEN r.valor_int IN (1, 3) THEN 1 ELSE 0 END) as respuestas_bajas,
+                       ROUND((SUM(CASE WHEN r.valor_int IN (1, 3) THEN 1 ELSE 0 END) * 100.0 / COUNT(r.id)), 1) as porcentaje_bajas
+                FROM preguntas p JOIN respuestas r ON p.id = r.pregunta_id
+                WHERE r.encuesta_id IN ($subquery_encuestas_ids)
+                  AND r.profesor_id = :profesor_id
+                  AND p.tipo = 'escala'
+                  AND p.seccion = 'profesor'
                 GROUP BY p.id, p.texto
                 HAVING porcentaje_bajas > 40
                 ORDER BY porcentaje_bajas DESC
             ");
-            $stmt->execute([
-                ':curso_id' => $curso_id, 
-                ':fecha' => $fecha,
-                ':profesor_id' => $profesor_id
-            ]);
-            $profesor['preguntas_criticas'] = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            $stmt_criticas_prof->execute($params_profesor);
+            $profesor['preguntas_criticas'] = $stmt_criticas_prof->fetchAll(PDO::FETCH_ASSOC);
 
-            // Obtener comentarios asociados a preguntas críticas del profesor
-            if (!empty($profesor['preguntas_criticas'])) {
-                $ids_preguntas_criticas_prof = array_column($profesor['preguntas_criticas'], 'id');
-                $placeholders_prof = str_repeat('?,', count($ids_preguntas_criticas_prof) - 1) . '?';
-                
-                $stmt = $db->prepare("
-                    SELECT 
-                        p.texto as pregunta,
-                        r.valor_text as comentario,
-                        e.fecha_envio
-                    FROM respuestas r
-                    JOIN preguntas p ON r.pregunta_id = p.id
-                    JOIN encuestas e ON r.encuesta_id = e.id
-                    WHERE r.pregunta_id IN ($placeholders_prof)
-                    AND e.curso_id = ?
-                    AND DATE(e.fecha_envio) = ?
-                    AND r.profesor_id = ?
-                    AND r.valor_text IS NOT NULL 
-                    AND r.valor_text != ''
-                    AND p.seccion = 'profesor'
-                    ORDER BY p.texto, e.fecha_envio DESC
-                ");
-                
-                $params_prof = array_merge($ids_preguntas_criticas_prof, [$curso_id, $fecha, $profesor_id]);
-                $stmt->execute($params_prof);
-                $profesor['comentarios_criticos'] = $stmt->fetchAll(PDO::FETCH_ASSOC);
-            } else {
-                $profesor['comentarios_criticos'] = [];
-            }
-            
-            // Obtener comentarios cualitativos del profesor
-            $stmt = $db->prepare("
-                SELECT 
-                    r.valor_text as comentario,
-                    pr.texto as pregunta_texto,
-                    c.nombre as curso_nombre,
-                    p.nombre as profesor_nombre,
-                    e.fecha_envio
+            // 2d. Obtener comentarios cualitativos del profesor
+            $stmt_comentarios_prof = $db->prepare("
+                SELECT r.valor_text as comentario, p.texto as pregunta_texto, e.fecha_envio
                 FROM respuestas r
-                JOIN preguntas pr ON r.pregunta_id = pr.id
+                JOIN preguntas p ON r.pregunta_id = p.id
                 JOIN encuestas e ON r.encuesta_id = e.id
-                JOIN cursos c ON e.curso_id = c.id
-                JOIN profesores p ON r.profesor_id = p.id
-                WHERE e.curso_id = :curso_id 
-                AND DATE(e.fecha_envio) = :fecha
-                AND r.profesor_id = :profesor_id
-                AND r.valor_text IS NOT NULL 
-                AND r.valor_text != ''
-                AND pr.seccion = 'profesor'
-                AND pr.tipo = 'texto'
-                AND CHAR_LENGTH(TRIM(r.valor_text)) > 5
+                WHERE r.encuesta_id IN ($subquery_encuestas_ids) AND r.profesor_id = :profesor_id
+                AND p.tipo = 'texto' AND p.seccion = 'profesor'
+                AND r.valor_text IS NOT NULL AND r.valor_text != ''
                 ORDER BY e.fecha_envio DESC
             ");
-            $stmt->execute([
-                ':curso_id' => $curso_id, 
-                ':fecha' => $fecha,
-                ':profesor_id' => $profesor_id
-            ]);
-            $profesor['comentarios_cualitativos'] = $stmt->fetchAll(PDO::FETCH_ASSOC);
-            
+            $stmt_comentarios_prof->execute($params_profesor);
+            $profesor['comentarios_cualitativos'] = $stmt_comentarios_prof->fetchAll(PDO::FETCH_ASSOC);
+
             $profesores_completos[] = $profesor;
         }
         
@@ -566,11 +427,19 @@ function obtenerDatosProfesores($db, $curso_id, $fecha) {
         return [];
     }
 }
-
 /**
  * Genera el HTML completo del reporte
  */
 function generarHTMLReporte($datos, $curso_id, $fecha) {
+    error_log("=== Inicio generarHTMLReporte ===");
+    error_log("Verificando estructura de datos antes de generar PDF:");
+    error_log("Datos del curso: " . print_r($datos['datos_curso'] ?? 'No hay datos del curso', true));
+    error_log("Número de profesores: " . count($datos['datos_profesores'] ?? []));
+    foreach ($datos['datos_profesores'] ?? [] as $index => $profesor) {
+        error_log("Profesor $index - Nombre: " . ($profesor['info']['nombre'] ?? 'Sin nombre'));
+        error_log("Profesor $index - Estructura: " . print_r($profesor, true));
+    }
+    
     // Cargar CSS compatible con mPDF (sin variables CSS)
     $cssFile = __DIR__ . '/../../assets/css/mpdf_corporativo_compatible.css';
     if (!file_exists($cssFile)) {
@@ -623,6 +492,11 @@ function generarHTMLReporte($datos, $curso_id, $fecha) {
             <p class="subtitle">
                 Fecha del Reporte: <?php echo date('d/m/Y', strtotime($datos['fecha_reporte'])); ?>
             </p>
+            <?php if (!empty($datos['modulos'])): ?>
+            <p class="subtitle module-list">
+                Módulos Evaluados: <?php echo implode(', ', array_map('htmlspecialchars', $datos['modulos'])); ?>
+            </p>
+            <?php endif; ?>
         </div>
 
         <!-- Resumen Ejecutivo -->
@@ -834,53 +708,10 @@ function generarHTMLReporte($datos, $curso_id, $fecha) {
                     
                     <!-- Distribución de Calificaciones al 100% del ancho -->
                     <?php 
-                    // Generar solo la tabla de análisis (sin el gráfico)
-                    if (function_exists('convertirDatosParaGraficoUltraSimple')) {
+                    // Generar la tabla de análisis para el curso
+                    if (function_exists('convertirDatosParaGraficoUltraSimple') && function_exists('generarTablaAnalisisDistribucion')) {
                         $datos_convertidos = convertirDatosParaGraficoUltraSimple($datos_torta);
-                        
-                        // Extraer solo la parte de distribución
-                        $colores = ['#27ae60', '#3498db', '#f39c12', '#e67e22', '#e74c3c'];
-                        $observaciones = [
-                            'Excelente' => 'Rendimiento sobresaliente',
-                            'Bueno' => 'Rendimiento satisfactorio', 
-                            'Correcto' => 'Rendimiento aceptable',
-                            'Regular' => 'Necesita mejorar',
-                            'Deficiente' => 'Requiere intervención'
-                        ];
-                        
-                        echo '<div class="mpdf-distribution-section">';
-                        echo '<h3 class="mpdf-distribution-title">Análisis de Resultados</h3>';
-                        echo '<table class="mpdf-analysis-table" cellpadding="4" cellspacing="0">';
-                        echo '<thead>';
-                        echo '<tr>';
-                        echo '<th class="mpdf-analysis-header">Categoría</th>';
-                        echo '<th class="mpdf-analysis-header">Cantidad</th>';
-                        echo '<th class="mpdf-analysis-header">Porcentaje</th>';
-                        echo '<th class="mpdf-analysis-header">Observación</th>';
-                        echo '</tr>';
-                        echo '</thead>';
-                        echo '<tbody>';
-                        
-                        foreach ($datos_convertidos as $index => $item) {
-                            if ($item['valor'] > 0) {
-                                $color = $colores[$index % count($colores)];
-                                
-                                // Extraer el nombre base de la categoría (sin números entre paréntesis)
-                                $categoria_base = preg_replace('/\s*\(\d+\)/', '', $item['categoria']);
-                                $observacion = isset($observaciones[$categoria_base]) ? $observaciones[$categoria_base] : 'Sin observación';
-                                
-                                echo '<tr>';
-                                echo '<td class="mpdf-analysis-category">' . htmlspecialchars($item['categoria']) . '</td>';
-                                echo '<td class="mpdf-analysis-quantity" style="color: ' . $color . '; font-weight: bold;">' . $item['valor'] . '</td>';
-                                echo '<td class="mpdf-analysis-percentage" style="color: ' . $color . '; font-weight: bold;">' . $item['porcentaje'] . '%</td>';
-                                echo '<td class="mpdf-analysis-observation">' . $observacion . '</td>';
-                                echo '</tr>';
-                            }
-                        }
-                        
-                        echo '</tbody>';
-                        echo '</table>';
-                        echo '</div>';
+                        echo generarTablaAnalisisDistribucion($datos_convertidos, 'Análisis de Resultados del Curso');
                     }
                     ?>
                     
@@ -1230,6 +1061,10 @@ function generarHTMLReporte($datos, $curso_id, $fecha) {
                     <tr>
                         <td><strong>Parámetros:</strong></td>
                         <td>Curso ID: <?php echo $datos['curso_id']; ?>, Fecha: <?php echo $datos['fecha_reporte']; ?></td>
+                    </tr>
+                    <tr>
+                        <td><strong>Módulos Evaluados:</strong></td>
+                        <td><?php echo implode(', ', $datos['modulos']); ?></td>
                     </tr>
                 </table>
             </div>

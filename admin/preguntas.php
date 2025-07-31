@@ -1,16 +1,20 @@
 <?php
+
+// Comprueba si el usuario ha iniciado sesión como administrador
+//IMPORTANTE MODIFICAR EL auth_check.php para el login de la de la aplicacion. 
+// ==================================================================
+// ADAPTACIÓN NECESARIA Descometar el require_once __DIR__ . '/includes/auth_check.php';
+// ==================================================================
+
+define('SISTEMA_ENCUESTAS', true);
+
+require_once __DIR__ . '/includes/auth_check.php';
+
+
 /**
  * Panel de Administración - Gestión de Preguntas
  * Sistema de Encuestas Académicas
  */
-
-session_start();
-
-// // Verificar autenticación
-// if (!isset($_SESSION['admin_logged_in']) || $_SESSION['admin_logged_in'] !== true) {
-//     header('Location: login.php');
-//     exit();
-// }
 
 require_once '../config/database.php';
 
@@ -207,128 +211,11 @@ if (!$tab_activa) {
     $message = "Error al cargar preguntas: " . $e->getMessage();
     $message_type = "error";
 }
+     // Incluir encabezado y barra lateral
+        include_once 'includes/header.php';
+        include_once 'includes/sidebar.php';
 ?>
 
-<!DOCTYPE html>
-<html lang="es">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gestión de Preguntas - Sistema de Encuestas</title>    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
-    <link href="assets/css/admin.css" rel="stylesheet">
-    <style>
-        /* Estilos para el modo de reordenamiento */
-        .sortable-active tr {
-            transition: all 0.2s ease;
-        }
-        
-        .sortable-active tr:hover {
-            background-color: rgba(0, 123, 255, 0.1) !important;
-            transform: scale(1.01);
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-        }
-        
-        .sortable-active tr[draggable="true"] {
-            cursor: grab;
-        }
-        
-        .sortable-active tr[draggable="true"]:active {
-            cursor: grabbing;
-        }
-        
-        .drag-handle {
-            cursor: grab;
-            transition: all 0.2s ease;
-        }
-        
-        .drag-handle:hover {
-            color: #0d6efd !important;
-            transform: scale(1.2);
-        }
-        
-        /* Animación para el badge de orden */
-        .badge {
-            transition: all 0.3s ease;
-        }
-        
-        .sortable-active .badge {
-            background-color: #ffc107 !important;
-            color: #000 !important;
-            animation: pulse 1.5s infinite;
-        }
-        
-        @keyframes pulse {
-            0% { transform: scale(1); }
-            50% { transform: scale(1.1); }
-            100% { transform: scale(1); }
-        }
-        
-        /* Feedback visual durante drag */
-        tr[draggable="true"]:hover {
-            background-color: rgba(0, 123, 255, 0.05);
-        }
-        
-        /* Mejorar visibilidad del handle */
-        .drag-handle.d-none {
-            display: none !important;
-        }
-        
-        .drag-handle:not(.d-none) {
-            display: inline-block !important;
-            color: #6c757d;
-        }
-    </style>
-</head>
-<body>
-    <div class="container-fluid">
-        <div class="row row-sidebar">
-            <!-- Sidebar -->
-            <nav class="col-md-3 col-lg-2 d-md-block sidebar col-sidebar">
-                <div class="sidebar-sticky">
-                    <div class="text-center mb-4">
-                        <h5 class="text-white">Panel Admin</h5>
-                        <small class="text-muted">Sistema de Encuestas</small>
-                    </div>
-                    
-                    <ul class="nav flex-column">
-                        <li class="nav-item">
-                            <a class="nav-link text-white" href="index.php">
-                                <i class="bi bi-house-door me-2"></i>Dashboard
-                            </a>
-                        </li>                        <li class="nav-item">
-                            <a class="nav-link text-white" href="cursos.php">
-                                <i class="bi bi-book me-2"></i>Cursos
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link text-white" href="profesores.php">
-                                <i class="bi bi-person-badge me-2"></i>Profesores
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link text-white" href="formularios.php">
-                                <i class="bi bi-file-earmark-text me-2"></i>Formularios
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link text-white active" href="preguntas.php">
-                                <i class="bi bi-question-circle me-2"></i>Preguntas
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link text-white" href="reportes.php">
-                                <i class="bi bi-graph-up me-2"></i>Reportes
-                            </a>
-                        </li>
-                        <li class="nav-item mt-4">
-                            <a class="nav-link text-danger" href="login.php?logout=1">
-                                <i class="bi bi-box-arrow-right me-2"></i>Cerrar Sesión
-                            </a>
-                        </li>
-                    </ul>
-                </div>
-            </nav>
 
             <!-- Main content -->
             <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4 content-with-sidebar">
